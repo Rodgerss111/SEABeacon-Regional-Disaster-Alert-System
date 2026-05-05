@@ -1,0 +1,61 @@
+{
+  "_note": "Per-language Jinja2 alert templates keyed by (severity, hazard_type, language). DEMO STUB: translations are best-effort and should be reviewed by native-speaker DRR experts before any public deployment.",
+  "templates": {
+    "typhoon": {
+      "advisory": {
+        "en": {
+          "title": "ADVISORY: Typhoon {{storm_name}} approaching {{municipality}}",
+          "body": "SEABeacon advisory for {{municipality}}. Typhoon {{storm_name}} (Cat {{category}}) is projected to bring impacts in approximately {{eta_hours}} hours. Monitor official updates and prepare emergency supplies."
+        },
+        "fil": {
+          "title": "PAALALA: Bagyong {{storm_name}} papalapit sa {{municipality}}",
+          "body": "SEABeacon paalala para sa {{municipality}}. Inaasahan ang bagyong {{storm_name}} (Kategorya {{category}}) sa loob ng {{eta_hours}} oras. Sundin ang opisyal na ulat at maghanda ng emergency supplies."
+        },
+        "vi": {
+          "title": "KHUYẾN CÁO: Bão {{storm_name}} đang tiến đến {{municipality}}",
+          "body": "Khuyến cáo SEABeacon cho {{municipality}}. Bão {{storm_name}} (Cấp {{category}}) dự kiến gây ảnh hưởng trong khoảng {{eta_hours}} giờ tới. Theo dõi tin chính thức và chuẩn bị vật tư khẩn cấp."
+        },
+        "th": {
+          "title": "คำแนะนำ: พายุ {{storm_name}} กำลังเข้าใกล้ {{municipality}}",
+          "body": "SEABeacon แจ้งเตือนสำหรับ {{municipality}} พายุ {{storm_name}} (ระดับ {{category}}) คาดว่าจะส่งผลกระทบภายใน {{eta_hours}} ชั่วโมง ติดตามประกาศทางการและเตรียมของจำเป็น"
+        }
+      },
+      "warning": {
+        "en": {
+          "title": "WARNING: Typhoon {{storm_name}} expected to impact {{municipality}}",
+          "body": "SEABeacon warning for {{municipality}}. Typhoon {{storm_name}} (Cat {{category}}) is expected to cause damaging winds and heavy rainfall in approximately {{eta_hours}} hours. Secure your home, fuel vehicles, charge devices, and review your evacuation plan."
+        },
+        "fil": {
+          "title": "BABALA: Bagyong {{storm_name}} tatama sa {{municipality}}",
+          "body": "SEABeacon babala para sa {{municipality}}. Inaasahan ang bagyong {{storm_name}} (Kategorya {{category}}) na magdulot ng malakas na hangin at ulan sa loob ng {{eta_hours}} oras. Siguraduhin ang bahay, magpalit ng tubig, mag-charge ng gadget, at planuhin ang paglikas."
+        },
+        "vi": {
+          "title": "CẢNH BÁO: Bão {{storm_name}} sẽ ảnh hưởng đến {{municipality}}",
+          "body": "Cảnh báo SEABeacon cho {{municipality}}. Bão {{storm_name}} (Cấp {{category}}) dự kiến gây gió mạnh và mưa lớn trong khoảng {{eta_hours}} giờ tới. Gia cố nhà cửa, đổ xăng, sạc thiết bị và rà soát phương án sơ tán."
+        },
+        "th": {
+          "title": "เตือนภัย: พายุ {{storm_name}} จะส่งผลต่อ {{municipality}}",
+          "body": "SEABeacon เตือนภัยสำหรับ {{municipality}} พายุ {{storm_name}} (ระดับ {{category}}) คาดว่าจะทำให้เกิดลมแรงและฝนตกหนักภายใน {{eta_hours}} ชั่วโมง โปรดเสริมความแข็งแรงของบ้าน เติมน้ำมัน ชาร์จอุปกรณ์ และทบทวนแผนอพยพ"
+        }
+      },
+      "urgent": {
+        "en": {
+          "title": "URGENT: Take shelter now — Typhoon {{storm_name}} striking {{municipality}}",
+          "body": "URGENT SEABeacon alert for {{municipality}}. Typhoon {{storm_name}} (Cat {{category}}) is striking within {{eta_hours}} hours. Move to your designated evacuation center immediately. Stay away from coasts, rivers, and unstable structures. This is life-threatening."
+        },
+        "fil": {
+          "title": "URGENT: Lumikas na — Bagyong {{storm_name}} tumatama sa {{municipality}}",
+          "body": "URGENT na alerto ng SEABeacon para sa {{municipality}}. Tumatama ang bagyong {{storm_name}} (Kategorya {{category}}) sa loob ng {{eta_hours}} oras. Lumikas agad sa pinakamalapit na evacuation center. Iwasan ang baybayin, ilog, at sira-sirang gusali. Banta ito sa buhay."
+        },
+        "vi": {
+          "title": "KHẨN CẤP: Trú ẩn ngay — Bão {{storm_name}} đang đổ bộ {{municipality}}",
+          "body": "Cảnh báo SEABeacon KHẨN CẤP cho {{municipality}}. Bão {{storm_name}} (Cấp {{category}}) sẽ đổ bộ trong {{eta_hours}} giờ. Di chuyển ngay đến nơi sơ tán được chỉ định. Tránh xa bờ biển, sông và các công trình yếu. Đe dọa tính mạng."
+        },
+        "th": {
+          "title": "ด่วน: หาที่กำบังทันที — พายุ {{storm_name}} กำลังถล่ม {{municipality}}",
+          "body": "ประกาศด่วน SEABeacon สำหรับ {{municipality}} พายุ {{storm_name}} (ระดับ {{category}}) กำลังถล่มในอีก {{eta_hours}} ชั่วโมง โปรดอพยพไปยังศูนย์อพยพทันที หลีกเลี่ยงชายฝั่ง แม่น้ำ และอาคารชำรุด นี่คือภัยคุกคามต่อชีวิต"
+        }
+      }
+    }
+  }
+}

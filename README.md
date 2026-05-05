@@ -12,3 +12,6 @@ ASEAN in multiple languages â€” Filipino, Bahasa, Thai, Vietnamese, and Malay â€
 cross-border risk signals faster than manual tracking. Third, an automated alert generation layer 
 produces localized warnings in each country's language and distributes them through Facebook, 
 WhatsApp, LINE, and Zalo simultaneously.
+
+Notion :https://www.notion.so/Hackathon-Dashboard-3430a20e601e80ce8df6e347dfe50f56
+Jira   :https://salvadorvincentcarl.atlassian.net/jira/software/projects/SCRUM/boards/1/backlog?selectedIssue=SCRUM-7

@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #0a0e14;
+  color: #e6edf3;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  /* Use the dynamic viewport unit so mobile address-bar resizes don't clip the layout. */
+  min-height: 100dvh;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.severity-urgent {
+  color: #f87171;
+}
+.severity-warning {
+  color: #fbbf24;
+}
+.severity-advisory {
+  color: #fde68a;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #243044;
+  border-radius: 3px;
+}
+
+/* Scrub slider: thumb visible, track invisible (we draw the progress bar separately). */
+.seabeacon-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 2px solid #ef4444;
+  cursor: grab;
+  margin-top: -8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+.seabeacon-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+.seabeacon-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: #f8fafc;
+  border: 2px solid #ef4444;
+  cursor: grab;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+.seabeacon-slider::-webkit-slider-runnable-track {
+  height: 2px;
+  background: transparent;
+}
+.seabeacon-slider::-moz-range-track {
+  height: 2px;
+  background: transparent;
+}
+.seabeacon-slider:focus {
+  outline: none;
+}
+.seabeacon-slider:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.35);
+}

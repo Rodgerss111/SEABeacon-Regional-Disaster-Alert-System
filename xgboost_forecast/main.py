@@ -12,7 +12,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# 2. Database Connection Configuration
+# 2. Database Connection Configuration.
 # Mapped directly to your running PostGIS Docker container
 DATABASE_URL = "postgresql://seabeacon:securepassword@localhost:5432/spatial_db"
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)

@@ -1,0 +1,16 @@
+{
+  "folders": [
+    {
+      "path": "c:\\Users\\user\\GithubConnect\\esp-idf-examples"
+    }
+  ],
+  "settings": {
+    "idf.currentSetup": "C:\\esp\\v6.0.1\\esp-idf",
+    "idf.port": "COM10",
+    "idf.portWin": "COM10",
+    "idf.monitorPort": "COM10",
+    "idf.openOcdConfigs": [
+      "board/esp32s3-builtin.cfg"
+    ]
+  }
+}

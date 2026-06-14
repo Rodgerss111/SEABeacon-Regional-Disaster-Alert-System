@@ -1,0 +1,11 @@
+{
+    "feature_order": [
+        "tgs2602_rs_ro",
+        "mics5524_rs_ro",
+        "tgs2603_rs_ro",
+        "mics2714_rs_ro",
+        "bme688_bvoc_ppm"
+    ],
+    "target_name": "classification",
+    "n_components": 3
+}

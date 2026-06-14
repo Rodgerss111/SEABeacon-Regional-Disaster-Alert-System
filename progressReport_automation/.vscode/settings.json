@@ -1,0 +1,8 @@
+{
+    "python.defaultInterpreterPath": "c:/venv39nc/Scripts/python.exe",
+    "python.terminal.activateEnvironment": true,
+    "code-runner.runInTerminal": true,
+    "code-runner.executorMap": {
+        "python": "c:/venv39nc/Scripts/python.exe"
+    }
+}

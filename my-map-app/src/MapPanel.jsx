@@ -22,7 +22,12 @@ function tierFill(tier) {
 // "Northern Samar" → "northernsamar", "AgusandelNorte" → "agusandelnorte"
 // Same concept as CAN ID normalization before arbitration comparison
 function norm(s) {
-  return s?.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '') ?? ''
+  return s?.toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9]/g, "") ?? ""
 }
 
 const LAYERS = [

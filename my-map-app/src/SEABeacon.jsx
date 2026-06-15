@@ -36,35 +36,31 @@ const PROVINCES = {
 // wave index loops: 0 → 1 → 2 → 3 → back to 0
 const SIM_STORM = "Typhoon Pepito";
 const SIM_SCRIPT = [
-  // Wave 1 — broad initial detection, low-confidence social chatter
   {
     label: "Initial Detection",
-    flood:   { provinces:["Eastern Samar","Northern Samar","Leyte"],          scoreRange:[0.52,0.64], ctx:{ basinName:"Gandara Basin", discharge:"900",  threshold:"1800", floodHorizon:"48", severityLabel:"WATCH"    }},
-    typhoon: { provinces:["Eastern Samar","Northern Samar","Western Samar","Leyte"], scoreRange:[0.55,0.68], ctx:{ stormName:SIM_STORM, windKmh:"120", typhoonHorizon:"48", cteKm:"180" }},
-    social:  { provinces:["Eastern Samar","Northern Samar","Leyte","Cebu"],   scoreRange:[0.50,0.62], ctx:{ stormName:SIM_STORM, postCount:"14",  domLabel:"watch",    highLang:true }},
+    flood:   { country:"PH", provinces:["Eastern Samar","Northern Samar","Leyte"],               scoreRange:[0.52,0.64], ctx:{ basinName:"Gandara Basin",   discharge:"900",  threshold:"1800", floodHorizon:"48", severityLabel:"WATCH"    }},
+    typhoon: { country:"PH", provinces:["Eastern Samar","Northern Samar","Western Samar","Leyte"],scoreRange:[0.55,0.68], ctx:{ stormName:SIM_STORM,         windKmh:"120", typhoonHorizon:"48", cteKm:"180" }},
+    social:  { country:"PH", provinces:["Eastern Samar","Northern Samar","Leyte","Cebu"],         scoreRange:[0.50,0.62], ctx:{ stormName:SIM_STORM,         postCount:"14",  domLabel:"watch",    highLang:true }},
   },
-  // Wave 2 — track narrows, confidence rising
   {
     label: "Track Narrowing",
-    flood:   { provinces:["Eastern Samar","Northern Samar"],                  scoreRange:[0.65,0.76], ctx:{ basinName:"Gandara Basin", discharge:"1400", threshold:"1800", floodHorizon:"36", severityLabel:"ADVISORY" }},
-    typhoon: { provinces:["Eastern Samar","Northern Samar","Western Samar"],  scoreRange:[0.68,0.79], ctx:{ stormName:SIM_STORM, windKmh:"155", typhoonHorizon:"30", cteKm:"110" }},
-    social:  { provinces:["Eastern Samar","Northern Samar","Western Samar"],  scoreRange:[0.63,0.75], ctx:{ stormName:SIM_STORM, postCount:"38",  domLabel:"advisory", highLang:true }},
+    flood:   { country:"PH", provinces:["Eastern Samar","Northern Samar"],                        scoreRange:[0.65,0.76], ctx:{ basinName:"Gandara Basin",   discharge:"1400", threshold:"1800", floodHorizon:"36", severityLabel:"ADVISORY" }},
+    typhoon: { country:"PH", provinces:["Eastern Samar","Northern Samar","Western Samar"],        scoreRange:[0.68,0.79], ctx:{ stormName:SIM_STORM,         windKmh:"155", typhoonHorizon:"30", cteKm:"110" }},
+    social:  { country:"PH", provinces:["Eastern Samar","Northern Samar","Western Samar"],        scoreRange:[0.63,0.75], ctx:{ stormName:SIM_STORM,         postCount:"38",  domLabel:"advisory", highLang:true }},
   },
-  // Wave 3 — landfall imminent, all AIs converge
   {
-    label: "Landfall Imminent",
-    flood:   { provinces:["Eastern Samar","Northern Samar"],                  scoreRange:[0.80,0.91], ctx:{ basinName:"Gandara Basin", discharge:"1750", threshold:"1800", floodHorizon:"18", severityLabel:"WARNING"  }},
-    typhoon: { provinces:["Eastern Samar","Northern Samar"],                  scoreRange:[0.82,0.94], ctx:{ stormName:SIM_STORM, windKmh:"195", typhoonHorizon:"18", cteKm:"55"  }},
-    social:  { provinces:["Eastern Samar","Northern Samar"],                  scoreRange:[0.80,0.92], ctx:{ stormName:SIM_STORM, postCount:"89",  domLabel:"warning",  highLang:true }},
+    label: "Vietnam Flooding",
+    flood:   { country:"VT", provinces:["Quang Binh","Quang Nam","Thua Thien Hue"],               scoreRange:[0.65,0.78], ctx:{ basinName:"Thu Bon Basin",   discharge:"1200", threshold:"1600", floodHorizon:"36", severityLabel:"ADVISORY" }},
+    typhoon: { country:"VT", provinces:["Quang Binh","Quang Nam"],                                scoreRange:[0.60,0.74], ctx:{ stormName:"Bão số 4",        windKmh:"130", typhoonHorizon:"36", cteKm:"130" }},
+    social:  { country:"VT", provinces:["Quang Binh","Quang Nam","Thua Thien Hue"],               scoreRange:[0.58,0.72], ctx:{ stormName:"Bão số 4",        postCount:"29",  domLabel:"advisory", highLang:true }},
   },
-  // Wave 4 — landfall, peak intensity, tight convergence
   {
-    label: "Landfall",
-    flood:   { provinces:["Eastern Samar"],                                   scoreRange:[0.88,0.97], ctx:{ basinName:"Gandara Basin", discharge:"1800", threshold:"1800", floodHorizon:"6",  severityLabel:"WARNING"  }},
-    typhoon: { provinces:["Eastern Samar","Northern Samar"],                  scoreRange:[0.90,0.98], ctx:{ stormName:SIM_STORM, windKmh:"220", typhoonHorizon:"6",  cteKm:"20"  }},
-    social:  { provinces:["Eastern Samar","Northern Samar"],                  scoreRange:[0.88,0.97], ctx:{ stormName:SIM_STORM, postCount:"147", domLabel:"warning",  highLang:true }},
+    label: "Thailand Flash Floods",
+    flood:   { country:"TH", provinces:["Chiang Mai","Chiang Rai"],                               scoreRange:[0.70,0.84], ctx:{ basinName:"Ping River Basin",discharge:"1600", threshold:"2000", floodHorizon:"24", severityLabel:"WARNING"  }},
+    typhoon: { country:"TH", provinces:["Chiang Mai"],                                            scoreRange:[0.65,0.78], ctx:{ stormName:"Tropical Depression", windKmh:"95", typhoonHorizon:"24", cteKm:"80" }},
+    social:  { country:"TH", provinces:["Chiang Mai","Chiang Rai","Bangkok"],                     scoreRange:[0.68,0.80], ctx:{ stormName:"Tropical Depression", postCount:"62",  domLabel:"warning",  highLang:true }},
   },
-];
+]
 
 function simScore([lo, hi]) {
   return Math.round((lo + Math.random() * (hi - lo)) * 100) / 100;
@@ -1160,7 +1156,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
         handleSubmit({
           id: nextId(),
           aiType:      type,
-          country:     "PH",
+          country:     spec.country,
           province:    prov,
           score,
           submittedAt: now,

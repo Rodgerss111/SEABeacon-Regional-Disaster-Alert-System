@@ -1,1 +1,1 @@
-Isolated folder for the LSTM model
+# Isolated folder for the LSTM model

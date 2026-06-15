@@ -90,7 +90,8 @@ export default function MapPanel({
     if (!el) return
     const ro = new ResizeObserver(([entry]) => {
       const w = entry.contentRect.width
-      setDims({ width: w, height: Math.round(w * 0.80) })
+      const h = entry.contentRect.height
+      setDims({ width: w, height: h })   // use full height, not 80% of width
     })
     ro.observe(el)
     return () => ro.disconnect()
@@ -150,10 +151,12 @@ export default function MapPanel({
       background: C.surface, borderRadius: 14,
       border: `0.5px solid ${C.border}`, overflow:'hidden' }}>
 
-      <svg ref={svgRef} width={width} height={height} style={{ display:'block' }}>
+      <svg ref={svgRef} width="100%" height="100%"
+        viewBox={`0 0 ${width} ${height}`}
+        style={{ display:'block' }}>
 
         {/* Ocean */}
-        <rect width={width} height={height} fill="#DCEBFB" />
+        <rect x={-500} y={-500} width={width + 1000} height={height + 1000} fill="#DCEBFB" />
 
         {/* Background ASEAN countries */}
         {bgFeatures.map((feature, i) => (

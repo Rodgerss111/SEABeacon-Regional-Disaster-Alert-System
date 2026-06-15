@@ -1083,7 +1083,7 @@ function ProvinceMap({ ranked }) {
 }
 
 // ══ ENGINE VIEW ══════════════════════════════════════════════════════════════
-export default function SEABeacon({ selectedProvince, onRankedUpdate }) {
+export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpactMap = false }) {
   const [reports, setReports] = useState([]);
   const [showPanels, setShowPanels] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -1367,9 +1367,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate }) {
         <ProvinceRankings ranked={ranked} topProvince={top?.province}/>
 
         {/* Province Impact Map */}
-        <SectionLabel>Province impact map</SectionLabel>
-        <ProvinceMap ranked={ranked}/>
-
+        {!hideImpactMap && <ProvinceImpactMap markers={markers} ranked={ranked} />}
         <Arrow/>
 
         {/* Confidence Engine */}

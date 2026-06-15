@@ -1,0 +1,1 @@
+Isolated folder for the app

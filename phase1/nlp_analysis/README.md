@@ -1,1 +1,1 @@
-# Isolated folder for the NLP Analysis
+# Isolated folder for the NLP analysis

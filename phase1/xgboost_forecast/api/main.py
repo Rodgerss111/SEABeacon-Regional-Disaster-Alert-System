@@ -19,6 +19,8 @@ engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 # 3. Define Pydantic Input Schema (Updated for Pydantic V2 compliance)
 class PredictionPayload(BaseModel):
+    storm_name: str = Field(..., description="Name of the typhoon", json_schema_extra={"example": "Super Typhoon Kalmaegi"})
+    timestamp: str = Field(..., description="Forecast valid time", json_schema_extra={"example": "2026-06-17T18:00:00Z"})
     latitude: float = Field(
         ..., 
         description="Predicted storm latitude coordinate", 
@@ -34,11 +36,26 @@ class PredictionPayload(BaseModel):
         description="Uncertainty radius around the track in kilometers", 
         json_schema_extra={"example": 94.0}
     )
+    wind_speed_kph: float = Field(
+        ..., 
+        description="Predicted wind speed in KPH", 
+        json_schema_extra={"example": 185.0}
+    )
+
+# Sub-schema for rich output
+class ImpactedRegion(BaseModel):
+    country: str
+    province: str
+    storm_name: str
+    timestamp: str
+    wind_speed_kph: float
+    confidence_score: float
+
 # 4. Define Pydantic Output Schema
 class AlertResponse(BaseModel):
     alert_status: str
     impacted_count: int
-    impacted_regions: List[Dict[str, str]]
+    impacted_regions: List[ImpactedRegion]
 
 @app.get("/health")
 def health_check():
@@ -60,18 +77,20 @@ async def spatial_conversion(payload: PredictionPayload):
     # Convert kilometers to meters for accurate ST_Buffer metric calculation
     error_radius_meters = payload.cross_track_error_km * 1000.0
     
-    # Updated to match exact uppercase column names from the GADM shapefile import
+    # Updated to use ST_DWithin for intersection and ST_Distance for Confidence Scoring
     spatial_query = text("""
-        SELECT DISTINCT "COUNTRY", "NAME_1" 
+        SELECT "COUNTRY", "NAME_1",
+               ST_Distance(
+                   ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, 
+                   geometry::geography
+               ) as distance_meters
         FROM gadm_regions 
-        WHERE ST_Intersects(
-            geometry, 
-            ST_Buffer(
-                ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, 
-                :radius
-            )::geometry
+        WHERE ST_DWithin(
+            geometry::geography,
+            ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography, 
+            :radius
         )
-        ORDER BY "COUNTRY", "NAME_1";
+        ORDER BY distance_meters ASC;
     """)
     
     try:
@@ -85,11 +104,21 @@ async def spatial_conversion(payload: PredictionPayload):
                 }
             )
             
-            # Access the result using uppercase keys matching the SQL select statement
-            impacted_regions = [
-                {"country": row.COUNTRY, "province": row.NAME_1} 
-                for row in result
-            ]
+            # Access the result and map the rich payload with confidence calculations
+            impacted_regions = []
+            for row in result:
+                # Linear Confidence Score: 0km = 99%, outer radius edge = 10%
+                distance = row.distance_meters
+                confidence = max(10.0, round(99.0 * (1.0 - (distance / error_radius_meters)), 1))
+                
+                impacted_regions.append({
+                    "country": row.COUNTRY,
+                    "province": row.NAME_1,
+                    "storm_name": payload.storm_name,
+                    "timestamp": payload.timestamp,
+                    "wind_speed_kph": payload.wind_speed_kph,
+                    "confidence_score": confidence
+                })
             
         # Determine status based on spatial intersection results
         status = "ACTIVE_WARNING" if impacted_regions else "NO_IMPACT_DETECTED"

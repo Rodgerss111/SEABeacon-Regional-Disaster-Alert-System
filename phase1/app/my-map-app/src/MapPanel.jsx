@@ -44,6 +44,9 @@ const LAYERS = [
   { url: '/gadm41_TWN_1.json', background: false },
 ]
 
+// Non-ASEAN countries that are display-only (no interaction)
+const NON_ASEAN = new Set(['China', 'Japan', 'Taiwan'])
+
 let _geoCache = null
 let _geoPromise = null
 
@@ -60,7 +63,17 @@ function loadGeoData() {
           }
           return r.json()
         })
-        .then(json => ({ background: layer.background, features: json.features }))
+        // Tag isNonASEAN at load time so the render loop never has to check it
+        .then(json => ({
+          background: layer.background,
+          features: json.features.map(f => ({
+            ...f,
+            properties: {
+              ...f.properties,
+              isNonASEAN: NON_ASEAN.has(f.properties.COUNTRY),
+            }
+          }))
+        }))
         .catch(err => {
           console.error(err.message)
           return { background: layer.background, features: [] }
@@ -79,9 +92,30 @@ function loadGeoData() {
   return _geoPromise
 }
 
+// ── Tooltip — updates via direct DOM mutation, zero React re-renders ──────────
+// The ref is passed down from MapPanel. Mouse handlers write to it directly
+// instead of calling setState, so hovering never triggers a React render cycle.
+const ProvinceTooltip = memo(function ProvinceTooltip({ tooltipRef }) {
+  return (
+    <div
+      ref={tooltipRef}
+      style={{
+        display: 'none',          // shown/hidden by imperative toggle
+        position: 'absolute',
+        background: 'rgba(15,31,53,0.9)', color: 'white',
+        padding: '5px 10px', borderRadius: 6, fontSize: 11,
+        pointerEvents: 'none', whiteSpace: 'nowrap', zIndex: 10,
+        left: 0, top: 0,
+      }}
+    />
+  )
+})
+
 // ── Single province path, memoized ───────────────────────────────────────────
+// Callbacks are stable Map entries (see provinceCallbacks below), so the memo
+// comparator can safely skip them — identity never changes between renders.
 const ProvincePath = memo(function ProvincePath({
-  d, fill, isSelected, name, tier, onClick, onHoverEnter, onHoverLeave,
+  d, fill, isSelected, onClick, onHoverEnter, onHoverLeave,
 }) {
   return (
     <path
@@ -89,7 +123,6 @@ const ProvincePath = memo(function ProvincePath({
       fill={fill}
       stroke={isSelected ? '#0F1F35' : 'white'}
       strokeWidth={isSelected ? 1.5 : 0.5}
-      // No pointer cursor or events when onClick is absent (non-ASEAN countries)
       style={{ cursor: onClick ? 'pointer' : 'default' }}
       onClick={onClick}
       onMouseEnter={onHoverEnter}
@@ -97,11 +130,11 @@ const ProvincePath = memo(function ProvincePath({
     />
   )
 }, (prev, next) => (
-  prev.d === next.d &&
-  prev.fill === next.fill &&
-  prev.isSelected === next.isSelected &&
-  prev.name === next.name &&
-  prev.tier === next.tier
+  prev.d     === next.d     &&
+  prev.fill  === next.fill  &&
+  prev.isSelected === next.isSelected
+  // onClick/onHoverEnter/onHoverLeave excluded: they're stable per-index
+  // entries from provinceCallbacks and never change identity after mount.
 ))
 
 export default React.memo(function MapPanel({
@@ -111,38 +144,37 @@ export default React.memo(function MapPanel({
   markers = [],
   mode = 'alert',
 }) {
-  const [geoData, setGeoData] = useState(_geoCache)
-  const [hoverState, setHoverState] = useState({ index: null, position: null })
-  const svgRef = useRef(null)
-  const [dims, setDims] = useState({ width: 700, height: 560 })
-  const handleHoverEnter = useCallback((index, event) => {
-    const rect = svgRef.current?.getBoundingClientRect()
-    if (!rect) return
-    setHoverState({
-      index,
-      position: { x: event.clientX - rect.left + 10, y: event.clientY - rect.top - 28 }
-    })
-  }, []);
-  const handleHoverLeave = useCallback(() => {
-    setHoverState({ index: null, position: null })
-  }, [])
+  const [geoData, setGeoData]   = useState(_geoCache)
+  const [dims, setDims]         = useState({ width: 700, height: 560 })
+  const svgRef                  = useRef(null)
+  const tooltipRef              = useRef(null)
+  // Stable ref to latest normalizedAlerts/markers so tooltip handlers can read
+  // them without being recreated when those values change.
+  const alertsRef               = useRef({})
+  const markersRef              = useRef([])
+  const modeRef                 = useRef(mode)
 
+  useEffect(() => { modeRef.current = mode }, [mode])
+
+  // Responsive resize observer
   useEffect(() => {
     const el = svgRef.current?.parentElement
     if (!el) return
     const ro = new ResizeObserver(([entry]) => {
-      const w = entry.contentRect.width
-      const h = entry.contentRect.height
-      setDims({ width: w, height: h })
+      setDims({ width: entry.contentRect.width, height: entry.contentRect.height })
     })
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
 
+  // Load GeoJSON — uses shared module-level cache
   useEffect(() => {
     if (_geoCache) { setGeoData(_geoCache); return }
     loadGeoData().then(setGeoData)
   }, [])
+
+  // All hooks must run unconditionally before any early return (see comment in
+  // prior version). useMemo falls back to empty/null when geoData isn't ready.
 
   const { width, height } = dims
 
@@ -156,7 +188,7 @@ export default React.memo(function MapPanel({
   const pathGen = useMemo(() => d3.geoPath().projection(projection), [projection])
 
   const bgFeatures = useMemo(
-    () => (geoData ? geoData.features.filter(f => f.properties.isBackground) : []),
+    () => (geoData ? geoData.features.filter(f =>  f.properties.isBackground) : []),
     [geoData]
   )
   const provFeatures = useMemo(
@@ -179,12 +211,19 @@ export default React.memo(function MapPanel({
     return map
   }, [alertsByProvince, normToGadm])
 
-  const normalizedMarkers = useMemo(() => {
-    return markers.map(m => ({ ...m, province: normToGadm[norm(m.province)] ?? m.province }))
-  }, [markers, normToGadm])
+  // Keep alertsRef in sync so tooltip handlers always see latest value
+  useEffect(() => { alertsRef.current = normalizedAlerts }, [normalizedAlerts])
+
+  const normalizedMarkers = useMemo(() => (
+    markers.map(m => ({ ...m, province: normToGadm[norm(m.province)] ?? m.province }))
+  ), [markers, normToGadm])
+
+  // Keep markersRef in sync
+  useEffect(() => { markersRef.current = normalizedMarkers }, [normalizedMarkers])
 
   const normalizedSelected = normToGadm[norm(selectedProvince)] ?? selectedProvince
 
+  // Memoize path strings and centroids together — one pass over provFeatures
   const { pathStrings, centroids } = useMemo(() => {
     const paths = {}
     const cents = {}
@@ -195,38 +234,93 @@ export default React.memo(function MapPanel({
     return { pathStrings: paths, centroids: cents }
   }, [provFeatures, pathGen])
 
-  const provinceNameToIndex = useMemo(() => {
-    const map = new Map()
-    provFeatures.forEach((f, i) => {
-      map.set(f.properties.NAME_1, i)
-    })
-    return map
-  }, [provFeatures])
-
+  // O(1) name → feature lookup (replaces provFeatures.find() in selection ring)
   const provinceNameToFeature = useMemo(() => {
     const map = new Map()
-    provFeatures.forEach(f => {
-      map.set(f.properties.NAME_1, f)
-    })
+    provFeatures.forEach(f => map.set(f.properties.NAME_1, f))
     return map
   }, [provFeatures])
 
-  const markerProvinceToMarker = useMemo(() => {
-    const map = new Map()
-    normalizedMarkers.forEach(m => {
-      map.set(m.province, m)
+  // ── Stable per-province callbacks ────────────────────────────────────────
+  // Built once per provFeatures change (i.e. on initial load only).
+  // Tooltip updates go directly to the DOM via tooltipRef — no setState at all.
+  // onProvinceClick is read through a ref so we don't recreate the Map when it changes.
+  const onProvinceClickRef = useRef(onProvinceClick)
+  useEffect(() => { onProvinceClickRef.current = onProvinceClick }, [onProvinceClick])
+
+  const provinceCallbacks = useMemo(() => {
+    const map = new Map() // index → { onClick, onHoverEnter, onHoverLeave }
+    provFeatures.forEach((f, i) => {
+      const name        = f.properties.NAME_1
+      const isNonASEAN  = f.properties.isNonASEAN
+
+      if (isNonASEAN) {
+        map.set(i, { onClick: undefined, onHoverEnter: undefined, onHoverLeave: undefined })
+        return
+      }
+
+      const onClick = () => onProvinceClickRef.current?.(name)
+
+      const onHoverEnter = (e) => {
+        const tip = tooltipRef.current
+        if (!tip) return
+        const rect = svgRef.current?.getBoundingClientRect()
+        if (!rect) return
+
+        // Build tooltip HTML imperatively — no React setState
+        const tier = alertsRef.current[name] ?? null
+        const tierColor = tierFill(tier)
+        let html = `<span style="font-weight:700">${name}</span>`
+        if (tier) {
+          html += `<span style="margin-left:8px;color:${tierColor}">${tier}</span>`
+        }
+        if (modeRef.current === 'impact') {
+          const m = markersRef.current.find(x => x.province === name)
+          if (m?.confidence != null) {
+            html += `<span style="margin-left:8px;color:#aaa">${Math.round(m.confidence * 100)}% confidence</span>`
+          }
+        }
+
+        tip.innerHTML = html
+        tip.style.left    = `${e.clientX - rect.left + 10}px`
+        tip.style.top     = `${e.clientY - rect.top  - 28}px`
+        tip.style.display = 'block'
+      }
+
+      const onHoverLeave = () => {
+        if (tooltipRef.current) tooltipRef.current.style.display = 'none'
+      }
+
+      map.set(i, { onClick, onHoverEnter, onHoverLeave })
     })
     return map
-  }, [normalizedMarkers])
+  }, [provFeatures]) // tooltipRef/svgRef/alertsRef/markersRef/modeRef are stable refs
 
-  const tooltipData = useMemo(() => {
-    if (hoverState.index === null) return null
-    const feature = provFeatures[hoverState.index]
-    const name = feature.properties.NAME_1
-    const tier = normalizedAlerts[name] ?? null
-    return { name, tier, x: hoverState.position?.x, y: hoverState.position?.y }
-  }, [hoverState, provFeatures, normalizedAlerts])
+  // Selection ring centroid — O(1) map lookup instead of O(n) find
+  const selectedCentroid = useMemo(() => {
+    if (!normalizedSelected) return null
+    const f = provinceNameToFeature.get(normalizedSelected)
+    if (!f) return null
+    const c = pathGen.centroid(f)
+    return (!c || isNaN(c[0])) ? null : c
+  }, [normalizedSelected, provinceNameToFeature, pathGen])
 
+  // Impact mode dot centroids — also O(1)
+  const impactDots = useMemo(() => {
+    if (mode !== 'impact') return []
+    return normalizedMarkers
+      .filter(m => m.tier)
+      .map(m => {
+        const f = provinceNameToFeature.get(m.province)
+        if (!f) return null
+        const c = pathGen.centroid(f)
+        if (!c || isNaN(c[0])) return null
+        return { ...m, cx: c[0], cy: c[1] }
+      })
+      .filter(Boolean)
+  }, [mode, normalizedMarkers, provinceNameToFeature, pathGen])
+
+  // ── Early return AFTER all hooks ─────────────────────────────────────────
   if (!geoData) {
     return (
       <div style={{ display:'flex', alignItems:'center', justifyContent:'center',
@@ -259,22 +353,19 @@ export default React.memo(function MapPanel({
           />
         ))}
 
-        {/* Clickable province paths */}
+        {/* Province paths — callbacks are stable; only fill/isSelected change */}
         {provFeatures.map((feature, i) => {
-          const name = feature.properties.NAME_1
-          const tier = normalizedAlerts[name] ?? null
+          const name       = feature.properties.NAME_1
+          const isNonASEAN = feature.properties.isNonASEAN
+          const tier       = normalizedAlerts[name] ?? null
           const isSelected = normalizedSelected === name
-
-          // China, Japan, Taiwan are display-only — no interaction
-          const isNonASEAN = ['China', 'Japan', 'Taiwan'].includes(feature.properties.COUNTRY)
-          const nonASEANFill = '#d5d6d2'
-
-          const fill = mode === 'alert'
-            ? (tierFill(tier) ?? (isSelected ? '#4a90d9' : (isNonASEAN ? nonASEANFill : '#8ab87a')))
-            : (isSelected ? '#4a90d9' : (isNonASEAN ? nonASEANFill : '#a8c8a0'))
-
+          const fill       = mode === 'alert'
+            ? (tierFill(tier) ?? (isSelected ? '#4a90d9' : (isNonASEAN ? '#c2c7b6' : '#8ab87a')))
+            : (isSelected ? '#4a90d9' : (isNonASEAN ? '#d0d3cc' : '#a8c8a0'))
           const d = pathStrings[i]
           if (!d) return null
+
+          const cbs = provinceCallbacks.get(i)
 
           return (
             <ProvincePath
@@ -282,72 +373,38 @@ export default React.memo(function MapPanel({
               d={d}
               fill={fill}
               isSelected={isSelected}
-              name={name}
-              tier={tier}
-              // Non-ASEAN countries get no handlers — unselectable, no tooltip, default cursor
-              onClick={isNonASEAN ? undefined : () => onProvinceClick?.(name)}
-              onHoverEnter={isNonASEAN ? undefined : (e) => handleHoverEnter(i, e)}
-              onHoverLeave={isNonASEAN ? undefined : handleHoverLeave}
+              onClick={cbs?.onClick}
+              onHoverEnter={cbs?.onHoverEnter}
+              onHoverLeave={cbs?.onHoverLeave}
             />
           )
         })}
 
-        {/* Impact mode — confidence dots */}
-        {mode === 'impact' && normalizedMarkers.filter(m => m.tier).map((m, i) => {
-          const feature = provFeatures.find(f => f.properties.NAME_1 === m.province)
-          if (!feature) return null
-          const c = pathGen.centroid(feature)
-          if (!c || isNaN(c[0])) return null
+        {/* Impact mode — confidence dots (O(1) centroid lookup) */}
+        {impactDots.map((m, i) => {
           const color = tierFill(m.tier) ?? C.amber
-          const r = Math.max(4, Math.min(16, (m.confidence ?? 0.5) * 16))
+          const r     = Math.max(4, Math.min(16, (m.confidence ?? 0.5) * 16))
           return (
             <g key={`dot-${i}`} style={{ pointerEvents:'none' }}>
-              <circle cx={c[0]} cy={c[1]} r={r + 4} fill={color} fillOpacity={0.15} />
-              <circle cx={c[0]} cy={c[1]} r={r}     fill={color} fillOpacity={0.6}
+              <circle cx={m.cx} cy={m.cy} r={r + 4} fill={color} fillOpacity={0.15} />
+              <circle cx={m.cx} cy={m.cy} r={r}     fill={color} fillOpacity={0.6}
                 stroke={color} strokeWidth={1} />
             </g>
           )
         })}
 
-        {/* Alert mode — selection ring at province centroid */}
-        {mode === 'alert' && normalizedSelected && (() => {
-          const f = provFeatures.find(f => f.properties.NAME_1 === normalizedSelected)
-          if (!f) return null
-          const c = pathGen.centroid(f)
-          if (!c || isNaN(c[0])) return null
-          return (
-            <circle cx={c[0]} cy={c[1]} r={10}
-              fill="none" stroke="#0F1F35" strokeWidth={1.5}
-              opacity={0.6} style={{ pointerEvents:'none' }}/>
-          )
-        })()}
+        {/* Alert mode — selection ring (O(1) centroid lookup) */}
+        {mode === 'alert' && selectedCentroid && (
+          <circle cx={selectedCentroid[0]} cy={selectedCentroid[1]} r={10}
+            fill="none" stroke="#0F1F35" strokeWidth={1.5}
+            opacity={0.6} style={{ pointerEvents:'none' }}/>
+        )}
 
       </svg>
 
-      {/* Tooltip */}
-      {tooltipData && (
-        <div style={{
-          position:'absolute', left: tooltipData.x, top: tooltipData.y,
-          background:'rgba(15,31,53,0.9)', color:'white',
-          padding:'5px 10px', borderRadius:6, fontSize:11,
-          pointerEvents:'none', whiteSpace:'nowrap', zIndex:10
-        }}>
-          <span style={{ fontWeight:700 }}>{tooltipData.name}</span>
-          {tooltipData.tier && (
-            <span style={{ marginLeft:8, color: tierFill(tooltipData.tier) }}>
-              {tooltipData.tier}
-            </span>
-          )}
-          {mode === 'impact' && (() => {
-            const m = normalizedMarkers.find(x => x.province === tooltipData.name)
-            return m?.confidence != null
-              ? <span style={{ marginLeft:8, color:'#aaa' }}>
-                  {Math.round(m.confidence * 100)}% confidence
-                </span>
-              : null
-          })()}
-        </div>
-      )}
+      {/* Tooltip — mounted once, updated imperatively via tooltipRef */}
+      <ProvinceTooltip tooltipRef={tooltipRef} />
+
     </div>
   )
 })

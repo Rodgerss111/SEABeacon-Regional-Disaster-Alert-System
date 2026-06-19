@@ -1,0 +1,18 @@
+{
+  "storm_name": "Super Typhoon Noru (Karding)",
+  "agency": "IBTrACS Historical Replay",
+  "trajectory": [
+    {"time_offset_hours": 0, "latitude": 15.0, "longitude": 124.5, "wind_kph": 130.0, "pressure_hpa": 980.0, "distance_to_land_km": 300.0},
+    {"time_offset_hours": 6, "latitude": 15.1, "longitude": 122.8, "wind_kph": 195.0, "pressure_hpa": 950.0, "distance_to_land_km": 100.0},
+    {"time_offset_hours": 12, "latitude": 15.2, "longitude": 121.5, "wind_kph": 240.0, "pressure_hpa": 920.0, "distance_to_land_km": 0.0},
+    {"time_offset_hours": 18, "latitude": 15.3, "longitude": 119.8, "wind_kph": 175.0, "pressure_hpa": 960.0, "distance_to_land_km": 0.0},
+    {"time_offset_hours": 24, "latitude": 15.5, "longitude": 117.5, "wind_kph": 150.0, "pressure_hpa": 970.0, "distance_to_land_km": 200.0},
+    {"time_offset_hours": 30, "latitude": 15.7, "longitude": 115.0, "wind_kph": 155.0, "pressure_hpa": 965.0, "distance_to_land_km": 350.0},
+    {"time_offset_hours": 36, "latitude": 15.8, "longitude": 112.5, "wind_kph": 165.0, "pressure_hpa": 955.0, "distance_to_land_km": 200.0},
+    {"time_offset_hours": 42, "latitude": 15.9, "longitude": 110.0, "wind_kph": 175.0, "pressure_hpa": 945.0, "distance_to_land_km": 80.0},
+    {"time_offset_hours": 48, "latitude": 16.0, "longitude": 108.2, "wind_kph": 160.0, "pressure_hpa": 960.0, "distance_to_land_km": 0.0},
+    {"time_offset_hours": 54, "latitude": 16.1, "longitude": 106.5, "wind_kph": 100.0, "pressure_hpa": 985.0, "distance_to_land_km": 0.0},
+    {"time_offset_hours": 60, "latitude": 16.3, "longitude": 104.5, "wind_kph": 65.0, "pressure_hpa": 995.0, "distance_to_land_km": 0.0},
+    {"time_offset_hours": 66, "latitude": 16.5, "longitude": 102.0, "wind_kph": 45.0, "pressure_hpa": 1000.0, "distance_to_land_km": 0.0}
+  ]
+}

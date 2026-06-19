@@ -4,6 +4,15 @@ import requests
 from datetime import datetime, timezone
 
 def fetch_active_typhoon_data(live_mode=False, replay_event_id=None):
+    import os
+    import json
+    
+    # --- INTERCEPT FOR DEMO RUNNER ---
+    demo_file = os.path.join(os.path.dirname(__file__), 'current_demo_state.json')
+    if os.path.exists(demo_file):
+        print("--> [Ingest] Intercepted rapid-fire demo state file. Bypassing APIs.")
+        with open(demo_file, 'r') as f:
+            return json.load(f)
     """
     Connects to external meteorological APIs to pull active storms,
     strictly filtering for the Western Pacific domain.

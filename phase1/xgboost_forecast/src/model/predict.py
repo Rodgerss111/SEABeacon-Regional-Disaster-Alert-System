@@ -3,7 +3,7 @@ import os
 import requests
 import joblib
 import numpy as np
-from datetime import timedelta
+import datetime
 
 # Dynamically add the src directory to the python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -49,6 +49,9 @@ def simulate_live_inference():
     raw_api_data = fetch_active_typhoon_data(live_mode=False)
     current_ml_vector, storm_name, current_time = vectorize_live_payload(raw_api_data)
     
+    # Extract the Simulation ID for Supabase logging
+    simulation_run_id = raw_api_data.get("simulation_run_id", "live-run-001")
+    
     print(f"\n--> 3. Target Locked: {storm_name}")
     # Extracting the current coordinates (index 8 and 9 in our 17-feature array)
     print(f"       Current Position: Lat {current_ml_vector[0][8]:.2f}, Lon {current_ml_vector[0][9]:.2f}")
@@ -63,28 +66,53 @@ def simulate_live_inference():
         predictions = model.predict(current_ml_vector)
         next_lat, next_lon, next_wind_kt = predictions[0]
         
-        # 2. Increment the Metadata Timestamp
-        forecast_time = current_time + timedelta(hours=6 * step)
+        # 2. Increment the Metadata Timestamp (FIXED: explicit datetime.timedelta)
+        forecast_time = current_time + datetime.timedelta(hours=6 * step)
         
-        # 3. Expand spatial uncertainty cone
-        compounded_error = MEDIAN_ERROR_6H * np.sqrt(step)
+        # ---------------------------------------------------------
+        # 3. CALCULATE DYNAMIC LANDFALL RISK SCOPE
+        # ---------------------------------------------------------
+        # A. Forecast Uncertainty: AI error grows over time (sqrt of steps)
+        # Using a baseline median error of ~25km per 6-hour step
+        MEDIAN_ERROR_6H = 25.0 
+        uncertainty_radius = MEDIAN_ERROR_6H * np.sqrt(step)
         
-        # 4. Broadcast to FastAPI
+        # B. Physical Storm Size: Radius scales with AI's predicted wind intensity
+        # Heuristic: Base radius of 50km + 1.5km expansion per knot of wind speed
+        physical_wind_radius = 50.0 + (next_wind_kt * 1.5)
+        
+        # C. Total Warning Scope (The true transboundary danger zone)
+        total_warning_scope_km = uncertainty_radius + physical_wind_radius
+        
+        # ---------------------------------------------------------
+        # 4. BROADCAST TO FASTAPI & TERMINAL
+        # ---------------------------------------------------------
         if step in forecast_intervals:
             horizon_name = forecast_intervals[step]
             wind_speed_kph = round(next_wind_kt * 1.852, 2)
             
-            print(f"[{horizon_name} | {forecast_time.strftime('%m-%d %H:%M')}]")
-            # NEW: Print the AI's predicted coordinates for this specific timestamp
-            print(f"    📍 Predicted Position: Lat {next_lat:.2f}, Lon {next_lon:.2f}")
+            # --- REVERTED TO STANDARD UTC WITH LOCAL TIME APPENDED ---
+            utc_str = forecast_time.strftime('%m-%d %H:%M UTC')
+            pht_str = (forecast_time + datetime.timedelta(hours=8)).strftime('%I:%M %p')
+            ict_str = (forecast_time + datetime.timedelta(hours=7)).strftime('%I:%M %p')
             
+            # Print the standard UTC header alongside localized times
+            print(f"[{horizon_name} | {utc_str} (PH: {pht_str}, VN/TH: {ict_str})]")
+            
+            # Print the Spatial Data and the new Dynamic Scope
+            print(f"    📍 Predicted Position: Lat {next_lat:.2f}, Lon {next_lon:.2f}")
+            print(f"    📏 Landfall Risk Scope: {total_warning_scope_km:.1f} km radius")
+            
+            # Map the new dynamic scope to the cross_track_error_km payload
             payload = {
+                "simulation_run_id": simulation_run_id,
                 "storm_name": storm_name,
-                "timestamp": forecast_time.isoformat() + "Z",
-                # Explicitly cast NumPy floats to standard Python floats for JSON serialization
+                "base_timestamp": current_time.isoformat().replace("+00:00", "Z"), # NEW: When the forecast was made
+                "lead_time_hours": step * 6,                                       # NEW: The forecast horizon (6, 12, etc.)
+                "timestamp": forecast_time.isoformat().replace("+00:00", "Z"), 
                 "latitude": float(round(next_lat, 4)),
                 "longitude": float(round(next_lon, 4)),
-                "cross_track_error_km": float(round(compounded_error, 2)),
+                "cross_track_error_km": float(round(total_warning_scope_km, 2)),
                 "wind_speed_kph": float(wind_speed_kph)
             }
             

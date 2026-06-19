@@ -19,8 +19,15 @@ engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 # 3. Define Pydantic Input Schema (Updated for Pydantic V2 compliance)
 class PredictionPayload(BaseModel):
+    simulation_run_id: str = Field(default="live-run", description="Unique ID for this simulation run")
     storm_name: str = Field(..., description="Name of the typhoon", json_schema_extra={"example": "Super Typhoon Kalmaegi"})
-    timestamp: str = Field(..., description="Forecast valid time", json_schema_extra={"example": "2026-06-17T18:00:00Z"})
+    
+    # --- NEW ADDITIONS FOR LSTM ENSEMBLE ---
+    base_timestamp: str = Field(..., description="Time the forecast was generated", json_schema_extra={"example": "2026-06-19T12:00:00Z"})
+    lead_time_hours: int = Field(..., description="Forecast horizon in hours (e.g., 6, 12, 24)", json_schema_extra={"example": 24})
+    # ---------------------------------------
+    
+    timestamp: str = Field(..., description="Forecast valid time (Target time)", json_schema_extra={"example": "2026-06-20T12:00:00Z"})
     latitude: float = Field(
         ..., 
         description="Predicted storm latitude coordinate", 
@@ -41,7 +48,6 @@ class PredictionPayload(BaseModel):
         description="Predicted wind speed in KPH", 
         json_schema_extra={"example": 185.0}
     )
-
 # Sub-schema for rich output
 class ImpactedRegion(BaseModel):
     country: str
@@ -56,6 +62,10 @@ class AlertResponse(BaseModel):
     alert_status: str
     impacted_count: int
     impacted_regions: List[ImpactedRegion]
+
+# --- NEW: SUPABASE CONNECTION FOR LSTM DATA ---
+SUPABASE_URL = "postgresql://postgres.axigjjehzqghflrvewaj:loGiwer21Glw@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
+supabase_engine = create_engine(SUPABASE_URL)
 
 @app.get("/health")
 def health_check():
@@ -122,6 +132,41 @@ async def spatial_conversion(payload: PredictionPayload):
             
         # Determine status based on spatial intersection results
         status = "ACTIVE_WARNING" if impacted_regions else "NO_IMPACT_DETECTED"
+        
+        # --- NEW: LOG TO SUPABASE FOR LSTM ENSEMBLE ---
+        try:
+            with supabase_engine.connect() as supabase_conn:
+                insert_query = text("""
+                    INSERT INTO seabeacon_forecasts (
+                        simulation_run_id, storm_name, base_timestamp, lead_time_hours, forecast_target_time,
+                        predicted_lat, predicted_lon, predicted_wind_kph,
+                        warning_scope_km, alert_status, impact_matrix
+                    ) VALUES (
+                        :run_id, :storm_name, :base_time, :lead_time, :target_time,
+                        :lat, :lon, :wind, :scope, :status, :matrix
+                    )
+                """)
+                import json
+                supabase_conn.execute(
+                    insert_query,
+                    {
+                        "run_id": payload.simulation_run_id,
+                        "storm_name": payload.storm_name,
+                        "base_time": payload.base_timestamp,    # NEW
+                        "lead_time": payload.lead_time_hours,   # NEW
+                        "target_time": payload.timestamp,
+                        "lat": payload.latitude,
+                        "lon": payload.longitude,
+                        "wind": payload.wind_speed_kph,
+                        "scope": payload.cross_track_error_km,
+                        "status": status,
+                        "matrix": json.dumps(impacted_regions)
+                    }
+                )
+                supabase_conn.commit()
+        except Exception as supabase_error:
+            print(f"--> [Supabase] Failed to log forecast ensemble data: {supabase_error}")
+        # ------------------------------------------------
         
         return AlertResponse(
             alert_status=status,

@@ -42,6 +42,9 @@ const LAYERS = [
   { url: '/gadm41_PHL_1.json', background: false },
   { url: '/gadm41_VNM_1.json', background: false },
   { url: '/gadm41_THA_1.json', background: false },
+  { url: '/gadm41_CHN_1.json', background: false },
+  { url: '/gadm41_JPN_1.json', background: false },
+  { url: '/gadm41_TWN_1.json', background: false },
 ]
 
 // Module-level shared cache — both MapPanel instances share one fetch
@@ -182,9 +185,13 @@ export default function MapPanel({
           const d          = pathGen(feature)
           if (!d) return null
 
+          // Define colors for non-ASEAN countries (China, Japan, Taiwan)
+          const isNonASEAN = ['China', 'Japan', 'Taiwan'].includes(feature.properties.COUNTRY);
+          const nonASEANFill = '#9a9b99'; // Grey color for non-ASEAN countries
+
           const fill = mode === 'alert'
-            ? (tierFill(tier) ?? (isSelected ? '#4a90d9' : '#8ab87a'))
-            : (isSelected ? '#4a90d9' : '#a8c8a0')
+            ? (tierFill(tier) ?? (isSelected ? '#4a90d9' : (isNonASEAN ? nonASEANFill : '#8ab87a')))
+            : (isSelected ? '#4a90d9' : (isNonASEAN ? nonASEANFill : '#a8c8a0'))
 
           return (
             <path

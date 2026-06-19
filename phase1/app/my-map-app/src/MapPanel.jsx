@@ -187,7 +187,7 @@ export default function MapPanel({
 
           // Define colors for non-ASEAN countries (China, Japan, Taiwan)
           const isNonASEAN = ['China', 'Japan', 'Taiwan'].includes(feature.properties.COUNTRY);
-          const nonASEANFill = '#9a9b99'; // Grey color for non-ASEAN countries
+          const nonASEANFill = '#6b8e23'; // OliveDrab color for non-ASEAN countries
 
           const fill = mode === 'alert'
             ? (tierFill(tier) ?? (isSelected ? '#4a90d9' : (isNonASEAN ? nonASEANFill : '#8ab87a')))

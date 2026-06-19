@@ -7,7 +7,7 @@ const C = {
   text:"#0F1F35", textMid:"#3A5272", textDim:"#7A92AD",
   blue:"#1A65C0", blueLt:"#2D7DD2", teal:"#0A8C65", tealLt:"#0E9E75",
   purple:"#5A52C4", purpleLt:"#7A6FD8", amber:"#B87000", amberLt:"#E8A020",
-  red:"#C0282A", redLt:"#D94040", green:"#1E8A3C", greenLt:"#3DAA5C",
+  red:"#C0282A", redLt:"#D94040", green:"#1E8A3C", greenLt:"#3DAA5C"
 };
 
 const EXPIRY_MS = 6 * 60 * 60 * 1000; // 6 hours
@@ -28,7 +28,20 @@ function tierBg(t){ if(t==="Watch")return"rgba(232,160,32,0.10)"; if(t==="Adviso
 const PROVINCES = {
   PH: ["Eastern Samar","Western Samar","Northern Samar","Leyte","Southern Leyte","Cebu","Bohol","Davao del Norte","Davao del Sur","Cagayan","Isabela","Aurora","Quezon","Albay","Sorsogon","Masbate"],
   VT: ["Hanoi","Ho Chi Minh City","Da Nang","Hai Phong","Can Tho","An Giang","Ben Tre","Ca Mau","Khanh Hoa","Nghe An","Quang Binh","Quang Nam","Thua Thien Hue"],
-  TH: ["Bangkok","Chiang Mai","Chiang Rai","Nakhon Ratchasima","Khon Kaen","Udon Thani","Surat Thani","Phuket","Songkhla","Nakhon Si Thammarat","Phetchaburi","Rayong","Chonburi"],
+  TH: ["Bangkok","Chiang Mai","Chiang Rai","Nakhon Ratchasima","Khon Kaen","Udon Thani","Surat Thani","Phuket","Songkhla","Nakhon Si Thammarat","Phetchaburi","Rayong","Chonburi"]
+};
+
+// Comprehensive province lists for debug simulation
+const DEBUG_PROVINCES = {
+  PH: [
+    "Abra", "AgusandelNorte", "AgusandelSur", "Aklan", "Albay", "Antique", "Apayao", "Aurora", "Basilan", "Bataan", "Batanes", "Batangas", "Benguet", "Biliran", "Bohol", "Bukidnon", "Bulacan", "Cagayan", "CamarinesNorte", "CamarinesSur", "Camiguin", "Capiz", "Catanduanes", "Cavite", "Cebu", "CompostelaValley", "DavaodelNorte", "DavaodelSur", "DavaoOriental", "DinagatIslands", "EasternSamar", "Guimaras", "Ifugao", "IlocosNorte", "IlocosSur", "Iloilo", "Isabela", "Kalinga", "LaUnion", "Laguna", "LanaodelNorte", "LanaodelSur", "Leyte", "Maguindanao", "Marinduque", "Masbate", "MetropolitanManila", "MisamisOccidental", "MisamisOriental", "MountainProvince", "NegrosOccidental", "NegrosOriental", "NorthCotabato", "NorthernSamar", "NuevaEcija", "NuevaVizcaya", "OccidentalMindoro", "OrientalMindoro", "Palawan", "Pampanga", "Pangasinan", "Quezon", "Quirino", "Rizal", "Romblon", "Samar", "Sarangani", "Siquijor", "Sorsogon", "SouthCotabato", "SouthernLeyte", "SultanKudarat", "Sulu", "SurigaodelNorte", "SurigaodelSur", "Tarlac", "Tawi-Tawi", "Zambales", "ZamboangadelNorte", "ZamboangadelSur", "ZamboangaSibugay"
+  ],
+  VT: [
+    "AnGiang", "BàRịa-VũngTàu", "BắcGiang", "BắcKạn", "BạcLiêu", "BắcNinh", "BếnTre", "BìnhĐịnh", "BìnhDương", "BìnhPhước", "BìnhThuận", "CàMau", "CầnThơ", "CaoBằng", "ĐàNẵng", "ĐắkLắk", "ĐắkNông", "ĐiệnBiên", "ĐồngNai", "ĐồngTháp", "GiaLai", "HàGiang", "HàNam", "HàNội", "HàTĩnh", "HảiDương", "HảiPhòng", "HậuGiang", "HồChíMinh", "HoàBình", "HưngYên", "KhánhHòa", "KiênGiang", "KonTum", "LaiChâu", "LâmĐồng", "LạngSơn", "LàoCai", "LongAn", "NamĐịnh", "NghệAn", "NinhBình", "NinhThuận", "PhúThọ", "PhúYên", "QuảngBình", "QuảngNam", "QuảngNgãi", "QuảngNinh", "QuảngTrị", "SócTrăng", "SơnLa", "TâyNinh", "TháiBình", "TháiNguyên", "ThanhHóa", "ThừaThiênHuế", "TiềnGiang", "TràVinh", "TuyênQuang", "VĩnhLong", "VĩnhPhúc", "YênBái"
+  ],
+  TH: [
+    "AmnatCharoen", "AngThong", "Bangkok", "BuengKan", "BuriRam", "Chachoengsao", "ChaiNat", "Chaiyaphum", "Chanthaburi", "ChiangMai", "ChiangRai", "ChonBuri", "Chumphon", "Kalasin", "KamphaengPhet", "Kanchanaburi", "KhonKaen", "Krabi", "Lampang", "Lamphun", "Loei", "LopBuri", "MaeHongSon", "MahaSarakham", "Mukdahan", "NakhonNayok", "NakhonPathom", "NakhonPhanom", "NakhonRatchasima", "NakhonSawan", "NakhonSiThammarat", "Nan", "Narathiwat", "NongBuaLamPhu", "NongKhai", "Nonthaburi", "PathumThani", "Pattani", "Phangnga", "Phatthalung", "Phayao", "Phetchabun", "Phetchaburi", "Phichit", "Phitsanulok", "PhraNakhonSiAyutthaya", "Phrae", "Phuket", "PrachinBuri", "PrachuapKhiriKhan", "Ranong", "Ratchaburi", "Rayong", "RoiEt", "SaKaeo", "SakonNakhon", "SamutPrakan", "SamutSakhon", "SamutSongkhram", "Saraburi", "Satun", "SiSaKet", "SingBuri", "Songkhla", "Sukhothai", "SuphanBuri", "SuratThani", "Surin", "Tak", "Trang", "Trat", "UbonRatchathani", "UdonThani", "UthaiThani", "Uttaradit", "Yala", "Yasothon"
+  ]
 };
 // ══ SIMULATION SCRIPT ════════════════════════════════════════════════════════
 // Scripted typhoon track scenario — provinces are fixed, scores randomised
@@ -122,7 +135,7 @@ const PROVINCE_COORDS = {
 const AI_META = {
   flood:   { label:"AI-1 · Flood LSTM",       icon:"💧", color:C.blue,   colorLt:C.blueLt,   kind:"physical" },
   typhoon: { label:"AI-2 · Typhoon XGBoost",  icon:"🌀", color:C.teal,   colorLt:C.tealLt,   kind:"physical" },
-  social:  { label:"AI-3 · BERT NLP",         icon:"📡", color:C.purple, colorLt:C.purpleLt, kind:"social"   },
+  social:  { label:"AI-3 · BERT NLP",         icon:"📡", color:C.purple, colorLt:C.purpleLt, kind:"social"   }
 };
 
 // ══ FUSION ENGINE ════════════════════════════════════════════════════════════
@@ -802,7 +815,7 @@ function ReviewQueue({tier,alertText,fusion,onApprove,onModify,onReject,reviewSt
 
 // ══ SIMULATION BAR ══════════════════════════════════════════════════════════
 function SimulationBar({ running, paused, waveIdx, simLog, speed, onSpeedChange,
-                         pauseOnAlert, onPauseToggle, onStart, onStop }) {
+                         pauseOnAlert, onPauseToggle, onStart, onStop, onDebugStart, onDebugStop }) {
   const wave     = SIM_SCRIPT[waveIdx % SIM_SCRIPT.length];
   const nextWave = SIM_SCRIPT[(waveIdx + 1) % SIM_SCRIPT.length];
   const dotColor = paused ? C.amber : running ? C.teal : C.textDim;
@@ -830,6 +843,21 @@ function SimulationBar({ running, paused, waveIdx, simLog, speed, onSpeedChange,
               color={paused ? C.amber : C.teal}/>
             {!paused && <span style={{ fontSize:10, color:C.textDim }}>→ next: {nextWave.label}</span>}
             {paused && <span style={{ fontSize:10, color:C.amber }}>⏸ waiting for review decision</span>}
+          </div>
+        )}
+
+        {/* Debug simulation button */}
+        {!running && (
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <button onClick={onDebugStart}
+              style={{ fontSize:10, fontWeight:700, padding:"4px 10px", borderRadius:6,
+                border:`1px solid ${C.purple}66`,
+                background: `${C.purple}14`,
+                color: C.purple,
+                cursor: "pointer",
+                transition:"all 0.2s" }}>
+              🐞 Debug All Provinces
+            </button>
           </div>
         )}
 
@@ -1125,6 +1153,11 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
   const simPausedRef = useRef(false);
   const prevTierRef  = useRef(null);
 
+  // Debug simulation refs
+  const debugSocRef = useRef(null);
+  const debugPhysRef = useRef(null);
+  const debugPhysTimeoutRef = useRef(null);
+
   function fireSimReports(types) {
     const waveIdx = simWaveRef.current % SIM_SCRIPT.length;
     const wave    = SIM_SCRIPT[waveIdx];
@@ -1228,6 +1261,11 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
   }
 
   function startSim() {
+    // Stop debug simulation if running
+    if (simRunning) {
+      stopDebugSim();
+    }
+
     setSimRunning(true);
     setSimPaused(false);
     simPausedRef.current = false;
@@ -1249,7 +1287,101 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
     clearInterval(simPhysRef.current);
   }
 
-  useEffect(() => () => { stopSim(); }, []);
+  // Debug simulation functions
+  function fireDebugReports(types) {
+    const now = Date.now();
+    const display = tsDate();
+    const fired = [];
+
+    types.forEach(type => {
+      const countries = type === "flood" || type === "typhoon" || type === "social"
+        ? ["PH", "VT", "TH"]
+        : ["PH"]; // Default to just PH if unknown type
+
+      countries.forEach(country => {
+        const provinces = DEBUG_PROVINCES[country] || [];
+        provinces.forEach(prov => {
+          // Use maximum score (0.95) to ensure Warning tier
+          const score = 0.95;
+
+          // Build context based on AI type
+          let ctx = {};
+          if (type === "flood") {
+            ctx = { basinName:"Debug Basin", discharge:"2000", threshold:"1800", floodHorizon:"24", severityLabel:"WARNING" };
+          } else if (type === "typhoon") {
+            ctx = { stormName:"Debug Typhoon", windKmh:"200", typhoonHorizon:"24", cteKm:"50" };
+          } else if (type === "social") {
+            ctx = { stormName:"Debug Storm", postCount:"100", domLabel:"warning", highLang:true };
+          }
+
+          handleSubmit({
+            id: nextId(),
+            aiType: type,
+            country: country,
+            province: prov,
+            score,
+            submittedAt: now,
+            displayTime: display,
+            highLang: type === "social" ? true : true,
+            ctx,
+            simulated: true,
+            debug: true, // Mark as debug report
+          });
+          fired.push(`${type} → ${prov} (${country}) (${score.toFixed(2)})`);
+        });
+      });
+    });
+
+    setSimLog(prev => [{
+      time: display,
+      wave: "DEBUG",
+      label: "Debug Simulation - All Provinces",
+      entries: fired,
+    }, ...prev].slice(0, 20));
+  }
+
+  function startDebugSim() {
+    // Stop regular simulation if running
+    if (simRunning) {
+      stopSim();
+    }
+
+    setSimRunning(true);
+    setSimPaused(false);
+    simPausedRef.current = false;
+    simWaveRef.current = 0;
+    setSimWaveIdx(0);
+    setSimLog([]);
+    prevTierRef.current = null;
+    // Fire all AI types immediately for debug simulation
+    fireDebugReports(["flood", "typhoon", "social"]);
+
+    // Set up intervals to continuously fire reports (every 10 seconds for debug)
+    debugSocRef.current = setInterval(() => {
+      if (!simPausedRef.current) fireDebugReports(["social"]);
+    }, 10000); // 10 seconds
+
+    debugPhysTimeoutRef.current = setTimeout(() => {
+      if (!simPausedRef.current) fireDebugReports(["flood", "typhoon", "social"]);
+      debugPhysRef.current = setInterval(() => {
+        if (!simPausedRef.current) fireDebugReports(["flood", "typhoon", "social"]);
+      }, 30000); // 30 seconds
+    }, 30000);
+  }
+
+  function stopDebugSim() {
+    setSimRunning(false);
+    setSimPaused(false);
+    simPausedRef.current = false;
+    clearInterval(debugSocRef.current);
+    clearTimeout(debugPhysTimeoutRef.current);
+    clearInterval(debugPhysRef.current);
+  }
+
+  useEffect(() => () => {
+    stopSim();
+    stopDebugSim();
+  }, []);
 
   // reviewState resets to "pending" when new reports arrive after the last review.
   // This fixes the Wave 2 bug: same province resubmitted after rejection/approval.
@@ -1326,6 +1458,8 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
           onPauseToggle={v => { simPauseRef.current = v; setSimPauseAlert(v); }}
           onStart={startSim}
           onStop={stopSim}
+          onDebugStart={startDebugSim}
+          onDebugStop={stopDebugSim}
         />
 
         {/* AI Input Panels — collapsible */}
@@ -1363,7 +1497,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
         <ProvinceRankings ranked={ranked} topProvince={top?.province}/>
 
         {/* Province Impact Map */}
-        {!hideImpactMap && <ProvinceImpactMap markers={markers} ranked={ranked} />}
+        {!hideImpactMap && <ProvinceMap ranked={ranked} />}
         <Arrow/>
 
         {/* Confidence Engine */}

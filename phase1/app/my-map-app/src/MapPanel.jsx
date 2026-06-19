@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import * as d3 from 'd3'
 
 const C = {
@@ -18,9 +18,6 @@ function tierFill(tier) {
   return null
 }
 
-// Normalize province names for matching — strips spaces, punctuation, lowercases
-// "Northern Samar" → "northernsamar", "AgusandelNorte" → "agusandelnorte"
-// Same concept as CAN ID normalization before arbitration comparison
 function norm(s) {
   return s?.toLowerCase()
     .normalize("NFD")
@@ -47,7 +44,6 @@ const LAYERS = [
   { url: '/gadm41_TWN_1.json', background: false },
 ]
 
-// Module-level shared cache — both MapPanel instances share one fetch
 let _geoCache = null
 let _geoPromise = null
 
@@ -58,7 +54,10 @@ function loadGeoData() {
     LAYERS.map(layer =>
       fetch(layer.url)
         .then(r => {
-          if (!r.ok) throw new Error(`404: ${layer.url}`)
+          const contentType = r.headers.get('content-type') || ''
+          if (!r.ok || !contentType.includes('json')) {
+            throw new Error(`Bad response for ${layer.url}: ${r.status} ${contentType || '(no content-type)'}`)
+          }
           return r.json()
         })
         .then(json => ({ background: layer.background, features: json.features }))
@@ -80,7 +79,32 @@ function loadGeoData() {
   return _geoPromise
 }
 
-export default function MapPanel({
+// ── Single province path, memoized ───────────────────────────────────────────
+const ProvincePath = memo(function ProvincePath({
+  d, fill, isSelected, name, tier, onClick, onHoverEnter, onHoverLeave,
+}) {
+  return (
+    <path
+      d={d}
+      fill={fill}
+      stroke={isSelected ? '#0F1F35' : 'white'}
+      strokeWidth={isSelected ? 1.5 : 0.5}
+      // No pointer cursor or events when onClick is absent (non-ASEAN countries)
+      style={{ cursor: onClick ? 'pointer' : 'default' }}
+      onClick={onClick}
+      onMouseEnter={onHoverEnter}
+      onMouseLeave={onHoverLeave}
+    />
+  )
+}, (prev, next) => (
+  prev.d === next.d &&
+  prev.fill === next.fill &&
+  prev.isSelected === next.isSelected &&
+  prev.name === next.name &&
+  prev.tier === next.tier
+))
+
+export default React.memo(function MapPanel({
   alertsByProvince = {},
   onProvinceClick,
   selectedProvince,
@@ -88,28 +112,120 @@ export default function MapPanel({
   mode = 'alert',
 }) {
   const [geoData, setGeoData] = useState(_geoCache)
-  const [tooltip, setTooltip]  = useState(null)
+  const [hoverState, setHoverState] = useState({ index: null, position: null })
   const svgRef = useRef(null)
   const [dims, setDims] = useState({ width: 700, height: 560 })
+  const handleHoverEnter = useCallback((index, event) => {
+    const rect = svgRef.current?.getBoundingClientRect()
+    if (!rect) return
+    setHoverState({
+      index,
+      position: { x: event.clientX - rect.left + 10, y: event.clientY - rect.top - 28 }
+    })
+  }, []);
+  const handleHoverLeave = useCallback(() => {
+    setHoverState({ index: null, position: null })
+  }, [])
 
-  // Responsive resize observer
   useEffect(() => {
     const el = svgRef.current?.parentElement
     if (!el) return
     const ro = new ResizeObserver(([entry]) => {
       const w = entry.contentRect.width
       const h = entry.contentRect.height
-      setDims({ width: w, height: h })   // use full height, not 80% of width
+      setDims({ width: w, height: h })
     })
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
 
-  // Load GeoJSON — uses shared cache
   useEffect(() => {
     if (_geoCache) { setGeoData(_geoCache); return }
     loadGeoData().then(setGeoData)
   }, [])
+
+  const { width, height } = dims
+
+  const projection = useMemo(() => (
+    d3.geoMercator()
+      .center([115, 10])
+      .scale(1000 * (width / 700))
+      .translate([width / 2, height / 2])
+  ), [width, height])
+
+  const pathGen = useMemo(() => d3.geoPath().projection(projection), [projection])
+
+  const bgFeatures = useMemo(
+    () => (geoData ? geoData.features.filter(f => f.properties.isBackground) : []),
+    [geoData]
+  )
+  const provFeatures = useMemo(
+    () => (geoData ? geoData.features.filter(f => !f.properties.isBackground) : []),
+    [geoData]
+  )
+
+  const normToGadm = useMemo(() => {
+    const map = {}
+    provFeatures.forEach(f => { map[norm(f.properties.NAME_1)] = f.properties.NAME_1 })
+    return map
+  }, [provFeatures])
+
+  const normalizedAlerts = useMemo(() => {
+    const map = {}
+    Object.entries(alertsByProvince).forEach(([province, tier]) => {
+      const gadmName = normToGadm[norm(province)]
+      if (gadmName) map[gadmName] = tier
+    })
+    return map
+  }, [alertsByProvince, normToGadm])
+
+  const normalizedMarkers = useMemo(() => {
+    return markers.map(m => ({ ...m, province: normToGadm[norm(m.province)] ?? m.province }))
+  }, [markers, normToGadm])
+
+  const normalizedSelected = normToGadm[norm(selectedProvince)] ?? selectedProvince
+
+  const { pathStrings, centroids } = useMemo(() => {
+    const paths = {}
+    const cents = {}
+    provFeatures.forEach((f, i) => {
+      paths[i] = pathGen(f)
+      cents[i] = pathGen.centroid(f)
+    })
+    return { pathStrings: paths, centroids: cents }
+  }, [provFeatures, pathGen])
+
+  const provinceNameToIndex = useMemo(() => {
+    const map = new Map()
+    provFeatures.forEach((f, i) => {
+      map.set(f.properties.NAME_1, i)
+    })
+    return map
+  }, [provFeatures])
+
+  const provinceNameToFeature = useMemo(() => {
+    const map = new Map()
+    provFeatures.forEach(f => {
+      map.set(f.properties.NAME_1, f)
+    })
+    return map
+  }, [provFeatures])
+
+  const markerProvinceToMarker = useMemo(() => {
+    const map = new Map()
+    normalizedMarkers.forEach(m => {
+      map.set(m.province, m)
+    })
+    return map
+  }, [normalizedMarkers])
+
+  const tooltipData = useMemo(() => {
+    if (hoverState.index === null) return null
+    const feature = provFeatures[hoverState.index]
+    const name = feature.properties.NAME_1
+    const tier = normalizedAlerts[name] ?? null
+    return { name, tier, x: hoverState.position?.x, y: hoverState.position?.y }
+  }, [hoverState, provFeatures, normalizedAlerts])
 
   if (!geoData) {
     return (
@@ -119,40 +235,6 @@ export default function MapPanel({
       </div>
     )
   }
-
-  const { width, height } = dims
-
-  const projection = d3.geoMercator()
-    .center([115, 10])
-    .scale(1000 * (width / 700))
-    .translate([width / 2, height / 2])
-
-  const pathGen    = d3.geoPath().projection(projection)
-  const bgFeatures   = geoData.features.filter(f =>  f.properties.isBackground)
-  const provFeatures = geoData.features.filter(f => !f.properties.isBackground)
-
-  // Build normalized lookup table: norm(gadmName) → gadmName
-  // Lets us match "Northern Samar" (SEABeacon) → "NorthernSamar" (GADM)
-  const normToGadm = {}
-  provFeatures.forEach(f => {
-    normToGadm[norm(f.properties.NAME_1)] = f.properties.NAME_1
-  })
-
-  // Remap alertsByProvince keys to GADM names
-  const normalizedAlerts = {}
-  Object.entries(alertsByProvince).forEach(([province, tier]) => {
-    const gadmName = normToGadm[norm(province)]
-    if (gadmName) normalizedAlerts[gadmName] = tier
-  })
-
-  // Remap marker province names to GADM names
-  const normalizedMarkers = markers.map(m => ({
-    ...m,
-    province: normToGadm[norm(m.province)] ?? m.province
-  }))
-
-  // Also normalize selectedProvince for centroid/selection lookup
-  const normalizedSelected = normToGadm[norm(selectedProvince)] ?? selectedProvince
 
   return (
     <div style={{ position:'relative', width:'100%', height:'100%',
@@ -179,39 +261,38 @@ export default function MapPanel({
 
         {/* Clickable province paths */}
         {provFeatures.map((feature, i) => {
-          const name       = feature.properties.NAME_1
-          const tier       = normalizedAlerts[name] ?? null
+          const name = feature.properties.NAME_1
+          const tier = normalizedAlerts[name] ?? null
           const isSelected = normalizedSelected === name
-          const d          = pathGen(feature)
-          if (!d) return null
 
-          // Define colors for non-ASEAN countries (China, Japan, Taiwan)
-          const isNonASEAN = ['China', 'Japan', 'Taiwan'].includes(feature.properties.COUNTRY);
-          const nonASEANFill = '#6b8e23'; // OliveDrab color for non-ASEAN countries
+          // China, Japan, Taiwan are display-only — no interaction
+          const isNonASEAN = ['China', 'Japan', 'Taiwan'].includes(feature.properties.COUNTRY)
+          const nonASEANFill = '#d5d6d2'
 
           const fill = mode === 'alert'
             ? (tierFill(tier) ?? (isSelected ? '#4a90d9' : (isNonASEAN ? nonASEANFill : '#8ab87a')))
             : (isSelected ? '#4a90d9' : (isNonASEAN ? nonASEANFill : '#a8c8a0'))
 
+          const d = pathStrings[i]
+          if (!d) return null
+
           return (
-            <path
+            <ProvincePath
               key={`prov-${i}`}
               d={d}
               fill={fill}
-              stroke={isSelected ? '#0F1F35' : 'white'}
-              strokeWidth={isSelected ? 1.5 : 0.5}
-              style={{ cursor:'pointer', transition:'fill 0.3s' }}
-              onClick={() => onProvinceClick?.(name)}
-              onMouseEnter={e => {
-                const rect = svgRef.current.getBoundingClientRect()
-                setTooltip({ x: e.clientX - rect.left + 10, y: e.clientY - rect.top - 28, name, tier })
-              }}
-              onMouseLeave={() => setTooltip(null)}
+              isSelected={isSelected}
+              name={name}
+              tier={tier}
+              // Non-ASEAN countries get no handlers — unselectable, no tooltip, default cursor
+              onClick={isNonASEAN ? undefined : () => onProvinceClick?.(name)}
+              onHoverEnter={isNonASEAN ? undefined : (e) => handleHoverEnter(i, e)}
+              onHoverLeave={isNonASEAN ? undefined : handleHoverLeave}
             />
           )
         })}
 
-        {/* Impact mode — confidence dots scaled by m.confidence (0→1 maps to r 4→16px) */}
+        {/* Impact mode — confidence dots */}
         {mode === 'impact' && normalizedMarkers.filter(m => m.tier).map((m, i) => {
           const feature = provFeatures.find(f => f.properties.NAME_1 === m.province)
           if (!feature) return null
@@ -244,21 +325,21 @@ export default function MapPanel({
       </svg>
 
       {/* Tooltip */}
-      {tooltip && (
+      {tooltipData && (
         <div style={{
-          position:'absolute', left: tooltip.x, top: tooltip.y,
+          position:'absolute', left: tooltipData.x, top: tooltipData.y,
           background:'rgba(15,31,53,0.9)', color:'white',
           padding:'5px 10px', borderRadius:6, fontSize:11,
           pointerEvents:'none', whiteSpace:'nowrap', zIndex:10
         }}>
-          <span style={{ fontWeight:700 }}>{tooltip.name}</span>
-          {tooltip.tier && (
-            <span style={{ marginLeft:8, color: tierFill(tooltip.tier) }}>
-              {tooltip.tier}
+          <span style={{ fontWeight:700 }}>{tooltipData.name}</span>
+          {tooltipData.tier && (
+            <span style={{ marginLeft:8, color: tierFill(tooltipData.tier) }}>
+              {tooltipData.tier}
             </span>
           )}
           {mode === 'impact' && (() => {
-            const m = normalizedMarkers.find(x => x.province === tooltip.name)
+            const m = normalizedMarkers.find(x => x.province === tooltipData.name)
             return m?.confidence != null
               ? <span style={{ marginLeft:8, color:'#aaa' }}>
                   {Math.round(m.confidence * 100)}% confidence
@@ -269,4 +350,4 @@ export default function MapPanel({
       )}
     </div>
   )
-}
+})

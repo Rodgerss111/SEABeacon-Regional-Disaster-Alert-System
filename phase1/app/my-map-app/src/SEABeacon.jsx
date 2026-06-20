@@ -17,8 +17,18 @@ const fmt2 = v => v.toFixed(2);
 const clamp = (v,lo,hi) => Math.min(hi, Math.max(lo, v));
 const ts = () => new Date().toLocaleTimeString("en-PH",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
 const tsDate = () => new Date().toLocaleString("en-PH",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"});
-let _id = 1;
-const nextId = () => `RPT-${String(_id++).padStart(4,"0")}`;
+// Generate unique IDs using timestamp and random component to avoid collisions
+// Format: RPT-{timestamp in base 36}-{random 6-char string in base 36}
+const nextId = () => {
+  if (typeof window === 'undefined') {
+    // Fallback for server-side rendering
+    return `RPT-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}`;
+  }
+
+  const timestamp = Date.now().toString(36); // Base 36 number, shorter than decimal
+  const random = Math.random().toString(36).substring(2, 8); // Random string, 6 chars
+  return `RPT-${timestamp}-${random}`;
+};
 
 function getTier(s){ if(s<0.50)return null; if(s<0.65)return"Watch"; if(s<0.80)return"Advisory"; return"Warning"; }
 function tierColor(t){ if(t==="Watch")return C.amber; if(t==="Advisory")return C.amberLt; if(t==="Warning")return C.red; return C.textDim; }

@@ -1116,63 +1116,6 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
   const [approved, setApproved] = useState(false);
   const alertIdRef = useRef(1);
   const [logEntries, setLogEntries] = useState([]);
-  const [reportsLoaded, setReportsLoaded] = useState(false); // Track initial load
-
-  // Supabase constants - accessible to all functions in this component
-  // These values are loaded from environment variables (VITE_ prefixed in .env file)
-  const SOURCE_SUPABASE_URL = import.meta.env.VITE_SOURCE_SUPABASE_URL || "postgresql://postgres.axigjjehzqghflrvewaj:loGiwer21Glw@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres";
-  const CENTRALIZED_SUPABASE_URL = import.meta.env.VITE_CENTRALIZED_SUPABASE_URL || "postgresql://postgres.kiyiqwcbbjjkbxjpsovg:3gHXB26ooL3Tlhkk@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres";
-  // WARNING: This anon key is for the SOURCE database project (axigjjehzqghflrvewaj)
-  // You MUST obtain a valid anon key for the CENTRALIZED database project (kiyiqwcbbjjkbxjpsovg)
-  // to enable write operations to seebeacon_reports table
-  const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4aWdqamVoenFnaGZscnZld2FqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MjA0MDYsImV4cCI6MjA5NzM5NjQwNn0.uQBx8gGXKLmCI-jUnDArpAt6RFMiOSYYFzol4yCclVE";
-
-  // Load reports from Supabase on mount
-  useEffect(() => {
-    const loadReports = async () => {
-      try {
-        console.log("[SEABeacon] Loading reports from Supabase");
-        console.log("[SEABeacon] Using centralized URL:", CENTRALIZED_SUPABASE_URL);
-        // Fetch only non-expired reports (last 6 hours) to minimize payload
-        const sixHoursAgo = new Date(Date.now() - EXPIRY_MS).toISOString();
-        const response = await fetch(
-          `${CENTRALIZED_SUPABASE_URL}/rest/v1/seabeacon_reports?select=*&submitted_at=gte.${sixHoursAgo}&order=submitted_at.desc`,
-          {
-            headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-            }
-          }
-        );
-
-        console.log("[SEABeacon] Load reports response status:", response.status);
-        const responseText = await response.text();
-        console.log("[SEABeacon] Load reports response text:", responseText);
-
-        if (!response.ok) {
-          if (response.status === 401) {
-            console.error("[SEABeacon] AUTHENTICATION ERROR: Invalid API key for centralized database");
-            console.error("[SEABeacon] Please verify that the anon key in SEABeacon.jsx is valid for the centralized database project (kiyiqwcbbjjkbxjpsovg)");
-            console.error("[SEABeacon] The current key appears to be for the source database project (axigjjehzqghflrvewaj)");
-          } else if (response.status === 404) {
-            console.error("[SEABeacon] TABLE NOT FOUND: The seabeacon_reports table may not exist in the centralized database");
-            console.error("[SEABeacon] Please run the SQL script to create the table in the centralized database");
-          }
-          throw new Error(`HTTP ${response.status}: ${responseText}`);
-        }
-        const data = await response.json();
-        console.log("[SEABeacon] Loaded", data.length, "reports from Supabase");
-        setReports(data);
-        setReportsLoaded(true);
-      } catch (error) {
-        console.error("[SEABeacon] Failed to load reports from Supabase:", error);
-        setReports([]); // Fallback to empty on error
-        setReportsLoaded(true);
-      }
-    };
-
-    loadReports();
-  }, []); // Run once on mount
 
   // Tick every 30s to update expiry bars and purge expired records
   useEffect(() => {
@@ -1183,77 +1126,23 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
     return () => clearInterval(t);
   }, []);
 
-  const handleSubmit = useCallback(async (report) => {
-    try {
-      // 1. Optimistically update UI (immediate feedback)
-      console.log("[SEABeacon] handleSubmit called with report:", report);
-      setReports(prev => [report, ...prev]);
+  const handleSubmit = useCallback((report) => {
+    setReports(rs => [...rs, report]);
+  }, []);
 
-      // 2. Persist to Supabase (Centralized Database)
-      console.log("[SEABeacon] Submitting to Supabase:", `${CENTRALIZED_SUPABASE_URL}/rest/v1/seebeacon_reports`);
-      console.log("[SEABeacon] Using anon key prefix:", SUPABASE_ANON_KEY.substring(0, 20) + "...");
-      const response = await fetch(
-        `${CENTRALIZED_SUPABASE_URL}/rest/v1/seebeacon_reports`,
-        {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=representation' // Return the inserted row
-          },
-          body: JSON.stringify({
-            id: report.id,
-            ai_type: report.aiType,
-            country: report.country,
-            province: report.province,
-            score: report.score,
-            submitted_at: new Date(report.submittedAt).toISOString(),
-            display_time: report.displayTime,
-            high_lang: report.highLang,
-            ctx: report.ctx,
-            simulated: report.simulated ?? false,
-            debug: report.debug ?? false
-          })
-        }
-      );
-
-      console.log("[SEABeacon] Supabase response status:", response.status);
-      const responseText = await response.text();
-      console.log("[SEABeacon] Supabase response text:", responseText);
-
-      if (!response.ok) {
-        // If server fails, roll back the optimistic update
-        setReports(prev => prev.filter(r => r.id !== report.id));
-
-        if (response.status === 401) {
-          throw new Error(`AUTHENTICATION FAILED: Invalid API key for centralized database. Please verify the anon key is valid for project kiyiqwcbbjjkbxjpsovg.`);
-        } else if (response.status === 404) {
-          throw new Error(`TABLE NOT FOUND: The seebeacon_reports table may not exist in the centralized database. Please run the SQL script to create the table.`);
-        } else {
-          throw new Error(`Failed to save report: ${response.status} ${responseText}`);
-        }
-      }
-
-      console.log("[SEABeacon] Report successfully saved to Supabase");
-    } catch (error) {
-      console.error("[SEABeacon] Error submitting report:", error);
-      // Optional: show user notification toast here
-    }
-  }, []); // Note: empty deps - SOURCE_SUPABASE_URL, CENTRALIZED_SUPABASE_URL and SUPABASE_ANON_KEY are component-level constants
-
-<<<<<<< HEAD
   // Forecast processor: polls Supabase for new XGBoost forecasts and converts to AI reports
   useEffect(() => {
+    const SUPABASE_URL = "https://axigjjehzqghflrvewaj.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4aWdqamVoenFnaGZscnZld2FqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MjA0MDYsImV4cCI6MjA5NzM5NjQwNn0.uQBx8gGXKLmCI-jUnDArpAt6RFMiOSYYFzol4yCclVE";
+
     let isMounted = true;
     let lastRunId = null; // Tracks the last processed simulation_run_id
 
     const fetchForecasts = async () => {
       try {
-        console.log("[SEABeacon] Forecast processor: Fetching latest forecast...");
         // Fetch the most recent forecast row to get the latest simulation_run_id
         const latestResponse = await fetch(
-          `${SOURCE_SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=simulation_run_id&order=created_at.desc&limit=1`,
+          `${SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=simulation_run_id&order=created_at.desc&limit=1`,
           {
             headers: {
               apikey: SUPABASE_ANON_KEY,
@@ -1282,7 +1171,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
 
         // Fetch all forecast rows for this simulation_run_id
         const forecastsResponse = await fetch(
-          `${SOURCE_SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=*&simulation_run_id=eq.${latestRunId}`,
+          `${SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=*&simulation_run_id=eq.${latestRunId}`,
           {
             headers: {
               apikey: SUPABASE_ANON_KEY,
@@ -1404,80 +1293,6 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
     };
   }, [handleSubmit, nextId, tsDate]);
 
-  // Clear all reports from Supabase (Centralized Database)
-  const clearAllReports = useCallback(async () => {
-    try {
-      console.log("[SEABeacon] Clearing all reports from Supabase");
-      console.log("[SEABeacon] Using centralized URL:", CENTRALIZED_SUPABASE_URL);
-      const response = await fetch(
-        `${CENTRALIZED_SUPABASE_URL}/rest/v1/seebeacon_reports`, // DELETE all
-        {
-          method: 'DELETE',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-          }
-        }
-      );
-
-      console.log("[SEABeacon] Clear reports response status:", response.status);
-      const responseText = await response.text();
-      console.log("[SEABeacon] Clear reports response text:", responseText);
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error(`AUTHENTICATION FAILED: Invalid API key for centralized database. Please verify the anon key is valid for project kiyiqwcbbjjkbxjpsovg.`);
-        } else if (response.status === 404) {
-          throw new Error(`TABLE NOT FOUND: The seebeacon_reports table may not exist in the centralized database. Please run the SQL script to create the table.`);
-        } else {
-          throw new Error(`HTTP ${response.status}: ${responseText}`);
-        }
-      }
-      setReports([]); // Clear UI immediately
-      console.log("[SEABeacon] All reports cleared from Supabase");
-    } catch (error) {
-      console.error("[SEABeacon] Failed to clear reports:", error);
-      // Optional: show user notification
-    }
-  }, []); // Empty deps - SOURCE_SUPABASE_URL, CENTRALIZED_SUPABASE_URL and SUPABASE_ANON_KEY are component-level constants
-
-  // Periodically sync with Supabase to keep UI in sync (handles forecast processor additions)
-  useEffect(() => {
-    if (!reportsLoaded) return; // Wait for initial load
-
-    const interval = setInterval(async () => {
-      try {
-        console.log("[SEABeacon] Syncing reports with Supabase");
-        // Fetch only non-expired reports (last 6 hours)
-        const sixHoursAgo = new Date(Date.now() - EXPIRY_MS).toISOString();
-        const response = await fetch(
-          `${CENTRALIZED_SUPABASE_URL}/rest/v1/seabeacon_reports?select=*&submitted_at=gte.${sixHoursAgo}&order=submitted_at.desc`,
-          {
-            headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`
-            }
-          }
-        );
-
-        console.log("[SEABeacon] Sync response status:", response.status);
-        const responseText = await response.text();
-        console.log("[SEABeacon] Sync response text:", responseText);
-
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        console.log("[SEABeacon] Synced", data.length, "reports from Supabase");
-        setReports(data); // Replace entire list with server state
-      } catch (error) {
-        console.error("[SEABeacon] Failed to sync reports with Supabase:", error);
-      }
-    }, 30000); // Match your existing 30s expiry cleanup interval
-
-    return () => clearInterval(interval);
-  }, [reportsLoaded]); // Re-run if reportsLoaded changes
-
-=======
->>>>>>> parent of 386ab23 (take data from AI2)
   // ranked/tier must be declared before simulation effects that reference tier
   const ranked = fuseReports(reports, now, reviewedKeys)
   useEffect(() => { onRankedUpdate?.(ranked) }, [JSON.stringify(ranked)])
@@ -1836,7 +1651,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
 
         {/* Report Database Table */}
         <SectionLabel>Report database — live records</SectionLabel>
-        <ReportsTable reports={reports} now={now} onClear={clearAllReports} reviewedKeys={reviewedKeys}/>
+        <ReportsTable reports={reports} now={now} onClear={() => setReports([])} reviewedKeys={reviewedKeys}/>
 
         <Arrow/>
 

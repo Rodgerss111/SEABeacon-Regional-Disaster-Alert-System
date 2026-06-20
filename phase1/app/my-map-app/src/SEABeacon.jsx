@@ -1117,6 +1117,16 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
   const alertIdRef = useRef(1);
   const [logEntries, setLogEntries] = useState([]);
 
+  // Supabase configurations
+  const AI1_SUPABASE_URL = "https://dwatfuqltzastxymqaty.supabase.co";
+  const AI1_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybnJ2aGRyenZlc2Z0eXlraWFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDAwMTUsImV4cCI6MjA5NzM3NjAxNX0.7Nig4nl37BTnpBGfUS844I_cc3b5YHnUIerwdbalBRk";
+  const AI2_SUPABASE_URL = "https://axigjjehzqghflrvewaj.supabase.co";
+  const AI2_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4aWdqamVoenFnaGZscnZld2FqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MjA0MDYsImV4cCI6MjA5NzM5NjQwNn0.uQBx8gGXKLmCI-jUnDArpAt6RFMiOSYYFzol4yCclVE";
+  const AI3_SUPABASE_URL = "https://abowclxaasswcvhuxjzx.supabase.co";
+  const AI3_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53bHpndnVuYnBzaGZidnFueGpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MTg3NDgsImV4cCI6MjA5NzE5NDc0OH0.-a4G8zxZ2ruWdHLRvk4fSCYpGw597ucxzeEvZUchtrQ";
+  const CENTRAL_SUPABASE_URL = "https://kiyiqwcbbjjkbxjpsovg.supabase.co";
+  const CENTRAL_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpeWlxd2NiYmpqa2J4anBzb3ZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODc1NzUsImV4cCI6MjA5NTk2MzU3NX0.OkfwMNSNTC8OGCHzDmomtwOX9N3j-CRkUOdyttq_-48";
+
   // Tick every 30s to update expiry bars and purge expired records
   useEffect(() => {
     const t = setInterval(() => {
@@ -1126,21 +1136,46 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
     return () => clearInterval(t);
   }, []);
 
-  const handleSubmit = useCallback((report) => {
+  const handleSubmit = useCallback(async (report) => {
+    // Add to React state for real-time UI updates
     setReports(rs => [...rs, report]);
+
+    // Also persist to Central Supabase database
+    try {
+      const response = await fetch(`${CENTRAL_SUPABASE_URL}/rest/v1/seabeacon_reports`, {
+        method: 'POST',
+        headers: {
+          'apikey': CENTRAL_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${CENTRAL_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          id: report.id,
+          ai_type: report.aiType,
+          country: report.country,
+          province: report.province,
+          score: report.score,
+          submitted_at: new Date(report.submittedAt).toISOString(),
+          display_time: report.displayTime,
+          high_lang: report.highLang,
+          ctx: report.ctx,
+          simulated: report.simulated || false,
+          debug: report.debug || false
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to save report to Central database:', response.status, errorText);
+      }
+    } catch (error) {
+      console.error('Error saving report to Central database:', error);
+    }
   }, []);
 
   // Forecast processor: polls Supabase for new XGBoost forecasts and converts to AI reports
   useEffect(() => {
-    const AI2_SUPABASE_URL = "https://axigjjehzqghflrvewaj.supabase.co";
-    const AI2_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4aWdqamVoenFnaGZscnZld2FqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MjA0MDYsImV4cCI6MjA5NzM5NjQwNn0.uQBx8gGXKLmCI-jUnDArpAt6RFMiOSYYFzol4yCclVE";
-    const AI1_SUPABASE_URL = "https://dwatfuqltzastxymqaty.supabase.co";
-    const AI1_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybnJ2aGRyenZlc2Z0eXlraWFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDAwMTUsImV4cCI6MjA5NzM3NjAxNX0.7Nig4nl37BTnpBGfUS844I_cc3b5YHnUIerwdbalBRk";
-    const AI3_SUPABASE_URL = "https://abowclxaasswcvhuxjzx.supabase.co";
-    const AI3_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53bHpndnVuYnBzaGZidnFueGpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MTg3NDgsImV4cCI6MjA5NzE5NDc0OH0.-a4G8zxZ2ruWdHLRvk4fSCYpGw597ucxzeEvZUchtrQ";
-    const CENTRAL_SUPABASE_URL = "https://kiyiqwcbbjjkbxjpsovg.supabase.co";
-    const CENTRAL_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpeWlxd2NiYmpqa2J4anBzb3ZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODc1NzUsImV4cCI6MjA5NTk2MzU3NX0.OkfwMNSNTC8OGCHzDmomtwOX9N3j-CRkUOdyttq_-48";
-
     let isMounted = true;
     let lastRunId = null; // Tracks the last processed simulation_run_id
 

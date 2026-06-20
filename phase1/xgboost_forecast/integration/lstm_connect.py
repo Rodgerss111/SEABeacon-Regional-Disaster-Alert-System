@@ -47,12 +47,19 @@ def fetch_xgboost_forecasts(simulation_run_id, supabase_anon_key):
     - Latitude
     - Longitude
     - Wind Speed (KPH)
+    - Storm Name
+    - Warning Scope (km)
+    - Alert Status
+    - Impact Matrix
+    - Base Timestamp        (NEW)
+    - Lead Time Hours       (NEW)
     """
     
     PROJECT_REF = "axigjjehzqghflrvewaj"
     TABLE_NAME = "seabeacon_forecasts"
     
-    columns_needed = "forecast_target_time,predicted_lat,predicted_lon,predicted_wind_kph"
+    # THE FIX: Added base_timestamp and lead_time_hours to the Supabase SQL query
+    columns_needed = "forecast_target_time,predicted_lat,predicted_lon,predicted_wind_kph,storm_name,warning_scope_km,alert_status,impact_matrix,base_timestamp,lead_time_hours"
     
     url = f"https://{PROJECT_REF}.supabase.co/rest/v1/{TABLE_NAME}"
     params = {
@@ -82,7 +89,7 @@ def fetch_xgboost_forecasts(simulation_run_id, supabase_anon_key):
 if __name__ == "__main__":
     # --- INSTRUCTIONS FOR LSTM ENGINEER ---
     # 1. Provide the 'anon public' key here
-    YOUR_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4aWdqamVoenFnaGZscnZld2FqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MjA0MDYsImV4cCI6MjA5NzM5NjQwNn0.uQBx8gGXKLmCI-jUnDArpAt6RFMiOSYYFzol4yCclVE"
+    YOUR_ANON_KEY = "PASTE_THE_ANON_KEY_HERE"
     
     # 2. AUTO-FETCH THE LATEST RUN (No manual ID required!)
     TARGET_RUN_ID = get_latest_simulation_id(YOUR_ANON_KEY) 

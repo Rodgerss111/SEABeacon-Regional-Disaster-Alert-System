@@ -1132,8 +1132,14 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
 
   // Forecast processor: polls Supabase for new XGBoost forecasts and converts to AI reports
   useEffect(() => {
-    const SUPABASE_URL = "https://axigjjehzqghflrvewaj.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4aWdqamVoenFnaGZscnZld2FqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MjA0MDYsImV4cCI6MjA5NzM5NjQwNn0.uQBx8gGXKLmCI-jUnDArpAt6RFMiOSYYFzol4yCclVE";
+    const AI2_SUPABASE_URL = "https://axigjjehzqghflrvewaj.supabase.co";
+    const AI2_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4aWdqamVoenFnaGZscnZld2FqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MjA0MDYsImV4cCI6MjA5NzM5NjQwNn0.uQBx8gGXKLmCI-jUnDArpAt6RFMiOSYYFzol4yCclVE";
+    const AI1_SUPABASE_URL = "";
+    const AI1_SUPABASE_ANON_KEY = "";
+    const AI3_SUPABASE_URL = "";
+    const AI3_SUPABASE_ANON_KEY = "";
+    const CENTRAL_SUPABASE_URL = "";
+    const CENTRAL_SUPABASE_ANON_KEY = "";
 
     let isMounted = true;
     let lastRunId = null; // Tracks the last processed simulation_run_id
@@ -1142,11 +1148,11 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
       try {
         // Fetch the most recent forecast row to get the latest simulation_run_id
         const latestResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=simulation_run_id&order=created_at.desc&limit=1`,
+          `${AI2_SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=simulation_run_id&order=created_at.desc&limit=1`,
           {
             headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              apikey: AI2_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${AI2_SUPABASE_ANON_KEY}`,
             },
           }
         );
@@ -1171,11 +1177,11 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
 
         // Fetch all forecast rows for this simulation_run_id
         const forecastsResponse = await fetch(
-          `${SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=*&simulation_run_id=eq.${latestRunId}`,
+          `${AI2_SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=*&simulation_run_id=eq.${latestRunId}`,
           {
             headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+              apikey: AI2_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${AI2_SUPABASE_ANON_KEY}`,
             },
           }
         );

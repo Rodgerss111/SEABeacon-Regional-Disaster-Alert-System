@@ -35,7 +35,6 @@ const LAYERS = [
   { url: '/gadm41_SGP_1.json', background: true },
   { url: '/gadm41_BRN_1.json', background: true },
   { url: '/gadm41_IDN_1.json', background: true },
-  { url: '/gadm41_TLS_1.json', background: true },
   { url: '/gadm41_PHL_1.json', background: false },
   { url: '/gadm41_VNM_1.json', background: false },
   { url: '/gadm41_THA_1.json', background: false },

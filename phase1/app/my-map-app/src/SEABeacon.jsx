@@ -1130,6 +1130,169 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
     setReports(rs => [...rs, report]);
   }, []);
 
+  // Forecast processor: polls Supabase for new XGBoost forecasts and converts to AI reports
+  useEffect(() => {
+    const SUPABASE_URL = "https://axigjjehzqghflrvewaj.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4aWdqamVoenFnaGZscnZld2FqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MjA0MDYsImV4cCI6MjA5NzM5NjQwNn0.uQBx8gGXKLmCI-jUnDArpAt6RFMiOSYYFzol4yCclVE";
+
+    let isMounted = true;
+    let lastRunId = null; // Tracks the last processed simulation_run_id
+
+    const fetchForecasts = async () => {
+      try {
+        // Fetch the most recent forecast row to get the latest simulation_run_id
+        const latestResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=simulation_run_id&order=created_at.desc&limit=1`,
+          {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+          }
+        );
+
+        if (!latestResponse.ok) {
+          console.error("Failed to fetch latest forecast:", latestResponse.status, latestResponse.statusText);
+          return;
+        }
+
+        const latestData = await latestResponse.json();
+        if (!latestData || latestData.length === 0) {
+          console.log("No forecast data found in database.");
+          return;
+        }
+
+        const latestRunId = latestData[0].simulation_run_id;
+
+        // If we've already processed this run, skip
+        if (latestRunId === lastRunId) {
+          return;
+        }
+
+        // Fetch all forecast rows for this simulation_run_id
+        const forecastsResponse = await fetch(
+          `${SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=*&simulation_run_id=eq.${latestRunId}`,
+          {
+            headers: {
+              apikey: SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            },
+          }
+        );
+
+        if (!forecastsResponse.ok) {
+          console.error("Failed to fetch forecasts:", forecastsResponse.status, forecastsResponse.statusText);
+          return;
+        }
+
+        const forecasts = await forecastsResponse.json();
+        if (!forecasts || forecasts.length === 0) {
+          console.log("No forecast rows found for the latest simulation run.");
+          return;
+        }
+
+        // Extract storm_name from the first forecast (assuming same storm for the entire run)
+        const stormName = forecasts[0]?.storm_name || "Unknown Storm";
+
+        // Group by simulation_run_id (should be the same for all) and process
+        // We'll process the entire set as one forecast cycle
+        const provinceScores = new Map(); // key: `${country}::${province}` -> best score
+
+        forecasts.forEach((forecast) => {
+          const {
+            impact_matrix,
+            lead_time_hours,
+          } = forecast;
+
+          if (!impact_matrix || !Array.isArray(impact_matrix)) {
+            console.warn("Invalid impact_matrix in forecast:", forecast);
+            return;
+          }
+
+          impact_matrix.forEach((impact) => {
+            const { country, province, wind_speed_kph, confidence_score } = impact;
+
+            if (!country || !province || typeof wind_speed_kph !== "number" || typeof confidence_score !== "number") {
+              console.warn("Invalid impact entry:", impact);
+              return;
+            }
+
+            // Normalize the confidence score from 0-99 to 0.01-0.99
+            let normScore = confidence_score / 100.0;
+            normScore = Math.max(0.01, Math.min(0.99, normScore)); // Clamp
+
+            // Apply time weight based on lead_time_hours
+            let timeWeight = 1.0; // Default
+            switch (lead_time_hours) {
+              case 6:
+                timeWeight = 1.0;
+                break;
+              case 12:
+                timeWeight = 0.85;
+                break;
+              case 24:
+                timeWeight = 0.65;
+                break;
+              case 48:
+                timeWeight = 0.40;
+                break;
+              default:
+                // For any other horizon (e.g., 72), use a fallback weight
+                timeWeight = 0.20;
+            }
+
+            const weightedScore = normScore * timeWeight;
+            const key = `${country}::${province}`;
+
+            // Keep the maximum weighted score for this province across all forecast horizons
+            const currentBest = provinceScores.get(key) || 0;
+            if (weightedScore > currentBest) {
+              provinceScores.set(key, weightedScore);
+            }
+          });
+        });
+
+        // Now, for each province with a score, submit a typhoon AI report
+        provinceScores.forEach((score, key) => {
+          const [country, province] = key.split("::");
+          if (!isMounted) return; // Prevent state update on unmounted component
+
+          // Submit the report via the existing handleSubmit prop
+          handleSubmit({
+            id: nextId(),
+            aiType: "typhoon",
+            country,
+            province,
+            score,
+            submittedAt: Date.now(),
+            displayTime: tsDate(), // Reuse the existing tsDate helper
+            highLang: true, // Default to high language for AI reports
+            ctx: {
+              stormName: stormName, // Use the storm name from the forecast batch
+            },
+          });
+        });
+
+        // Update the last processed run ID
+        lastRunId = latestRunId;
+      } catch (error) {
+        console.error("Error in forecast processor:", error);
+      }
+    };
+
+    // Run the fetch every 30 seconds
+    const intervalId = setInterval(fetchForecasts, 30000);
+
+    // Also run once on mount
+    fetchForecasts();
+
+    // Cleanup on unmount
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [handleSubmit, nextId, tsDate]);
+
   // ranked/tier must be declared before simulation effects that reference tier
   const ranked = fuseReports(reports, now, reviewedKeys)
   useEffect(() => { onRankedUpdate?.(ranked) }, [JSON.stringify(ranked)])

@@ -1187,18 +1187,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
   // Forecast processor: polls Supabase for new XGBoost forecasts and converts to AI reports
   useEffect(() => {
     let isMounted = true;
-    // Get last processed run ID from localStorage to persist across sessions
-    let lastRunId = null;
-    if (typeof window !== 'undefined') {
-      try {
-        const storedLastRunId = localStorage.getItem('seabeacon_last_run_id');
-        if (storedLastRunId !== null) {
-          lastRunId = storedLastRunId;
-        }
-      } catch (e) {
-        console.warn('Could not read last run ID from localStorage:', e);
-      }
-    }
+    let lastRunId = null; // Tracks the last processed simulation_run_id
 
     const fetchForecasts = async () => {
       try {
@@ -1335,15 +1324,8 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
           });
         });
 
-        // Update the last processed run ID and persist to localStorage
+        // Update the last processed run ID
         lastRunId = latestRunId;
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem('seabeacon_last_run_id', String(lastRunId));
-          } catch (e) {
-            console.warn('Could not save last run ID to localStorage:', e);
-          }
-        }
       } catch (error) {
         console.error("Error in forecast processor:", error);
       }

@@ -1128,7 +1128,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
   const [logEntries, setLogEntries] = useState([]);
 
   // Supabase configurations
-  const AI1_SUPABASE_URL = "https://dwatfuqltzastxymqaty.supabase.co";
+  const AI1_SUPABASE_URL = "https://jrnrvhdrzvesftyykiab.supabase.co";
   const AI1_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybnJ2aGRyenZlc2Z0eXlraWFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDAwMTUsImV4cCI6MjA5NzM3NjAxNX0.7Nig4nl37BTnpBGfUS844I_cc3b5YHnUIerwdbalBRk";
   const AI2_SUPABASE_URL = "https://axigjjehzqghflrvewaj.supabase.co";
   const AI2_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4aWdqamVoenFnaGZscnZld2FqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MjA0MDYsImV4cCI6MjA5NzM5NjQwNn0.uQBx8gGXKLmCI-jUnDArpAt6RFMiOSYYFzol4yCclVE";
@@ -1394,22 +1394,26 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
 
     const fetchFloodPredictions = async () => {
       try {
-        const response = await fetch(
-          `${AI1_SUPABASE_URL}/rest/v1/flood_predictions?select=*&transmitted=eq.false&order=id.asc`,
-          {
-            headers: {
-              apikey: AI1_SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${AI1_SUPABASE_ANON_KEY}`,
-            },
-          }
-        );
+        // Build query - get new predictions since last processed
+        let query = `${AI1_SUPABASE_URL}/rest/v1/flood_predictions?select=*&order=id.asc`;
+        if (lastProcessedId !== null) {
+          query = `${AI1_SUPABASE_URL}/rest/v1/flood_predictions?select=*&id=gt.${lastProcessedId}&order=id.asc`;
+        }
+
+        const response = await fetch(query, {
+          headers: {
+            apikey: AI1_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${AI1_SUPABASE_ANON_KEY}`,
+          },
+        });
 
         if (!response.ok) {
-          console.error("Failed to fetch flood predictions:", response.status, response.statusText);
+          console.error("Failed to fetch flood predictions:", response.status, await response.text());
           return;
         }
 
         const predictions = await response.json();
+        console.log(`Received ${predictions.length} flood predictions from AI1 Supabase (since ID ${lastProcessedId})`);
         if (!predictions || predictions.length === 0) {
           return;
         }
@@ -1419,49 +1423,55 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
             id,
             country,
             province,
-            flood_score: rawScore,
-            basin_name,
+            score_value: rawScore,
+            basin_id,
             discharge_cms,
             threshold_cms,
-            flood_horizon_hrs,
+            forecast_hrs,
             severity_label,
           } = pred;
 
-          if (
-            !country ||
-            !province ||
-            typeof rawScore !== "number" ||
-            !basin_name ||
-            !discharge_cms ||
-            !threshold_cms ||
-            !flood_horizon_hrs ||
-            !severity_label
-          ) {
-            console.warn("Invalid flood prediction row:", pred);
+          // Basic validation - just check for required fields existing
+          const isValid = country && province && typeof rawScore === "number" && !isNaN(rawScore) &&
+                         basin_id && discharge_cms !== null && threshold_cms !== null &&
+                         forecast_hrs !== null && severity_label;
+
+          if (!isValid) {
+            console.warn("Invalid flood prediction row - missing required field:", {
+              id, country, province, rawScore, basin_id, discharge_cms,
+              threshold_cms, forecast_hrs, severity_label
+            });
             continue;
           }
 
-          let normScore = rawScore / 100.0;
+          // Map country codes: VN -> VT (Vietnam)
+          const mappedCountry = country === 'VN' ? 'VT' : country;
+
+          // Score is already in 0-1 range, just clamp to 0.01-0.99
+          let normScore = rawScore;
           normScore = Math.max(0.01, Math.min(0.99, normScore));
 
           try {
             const succeeded = await handleSubmit({
               id: nextId(),
               aiType: "flood",
-              country,
+              country: mappedCountry,
               province,
               score: normScore,
               submittedAt: Date.now(),
               displayTime: tsDate(),
               highLang: true,
               ctx: {
-                basinName: basin_name,
+                basinName: basin_id,
                 discharge: String(discharge_cms),
                 threshold: String(threshold_cms),
-                floodHorizon: String(flood_horizon_hrs),
+                floodHorizon: String(forecast_hrs),
                 severityLabel: severity_label,
               },
             });
+            if (succeeded) {
+              console.log(`Successfully processed flood prediction for id: ${id}, province: ${province}, score: ${normScore}`);
+            }
 
             if (!succeeded) {
               console.error("Failed to submit flood prediction report for id:", id);
@@ -1472,28 +1482,21 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
             continue;
           }
 
-          try {
-            const updateResponse = await fetch(
-              `${AI1_SUPABASE_URL}/rest/v1/flood_predictions?id=eq.${id}`,
-              {
-                method: 'PATCH',
-                headers: {
-                  apikey: AI1_SUPABASE_ANON_KEY,
-                  Authorization: `Bearer ${AI1_SUPABASE_ANON_KEY}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ transmitted: true }),
-              }
-            );
-            if (!updateResponse.ok) {
-              const errorText = await updateResponse.text();
-              console.error(`Failed to mark flood prediction ${id} as transmitted:`, updateResponse.status, errorText);
-            }
-          } catch (updateError) {
-            console.error("Error updating flood prediction as transmitted:", updateError);
-          }
+          // Note: flood_predictions table doesn't have a transmitted column
+          // Skipping update as column doesn't exist in this table
 
-          lastProcessedId = id;
+          // Track the maximum ID we've seen in this batch
+          if (id > maxIdInBatch) {
+            maxIdInBatch = id;
+          }
+        }
+
+        // Update lastProcessedId to the highest ID we saw in this batch
+        // This ensures we don't reprocess the same batch even if some rows failed
+        if (maxIdInBatch > lastProcessedId) {
+          lastProcessedId = maxIdInBatch;
+          console.log(`Updated last processed flood prediction ID to: ${lastProcessedId}`);
+        }
         }
       } catch (error) {
         console.error("Error in flood prediction processor:", error);

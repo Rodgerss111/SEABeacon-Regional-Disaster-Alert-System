@@ -1242,9 +1242,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
         const forecasts = await forecastsResponse.json();
         if (!forecasts || forecasts.length === 0) {
           console.log("No new forecast rows found for the latest simulation run.");
-          // Still update lastRunId to avoid reprocessing the same run if there are no new rows?
-          // But note: there might be rows that are already transmitted. We want to mark the run as processed only if we have processed all rows?
-          // We'll update lastRunId so we don't keep checking this run if there are no new rows.
+          // Still update lastRunId to avoid reprocessing the same run if there are no new rows.
           lastRunId = latestRunId;
           return;
         }
@@ -1418,6 +1416,10 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
           return;
         }
 
+        // Track the maximum ID we've seen in this batch, starting from the last
+        // processed ID (or -1 if this is the first run) so the comparison below works.
+        let maxIdInBatch = lastProcessedId !== null ? lastProcessedId : -1;
+
         for (const pred of predictions) {
           const {
             id,
@@ -1496,7 +1498,6 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
         if (maxIdInBatch > lastProcessedId) {
           lastProcessedId = maxIdInBatch;
           console.log(`Updated last processed flood prediction ID to: ${lastProcessedId}`);
-        }
         }
       } catch (error) {
         console.error("Error in flood prediction processor:", error);

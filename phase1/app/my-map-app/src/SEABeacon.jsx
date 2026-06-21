@@ -1178,9 +1178,12 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
       if (!response.ok) {
         const errorText = await response.text();
         console.error('Failed to save report to Central database:', response.status, errorText);
+        return false;
       }
+      return true;
     } catch (error) {
       console.error('Error saving report to Central database:', error);
+      return false;
     }
   }, []);
 
@@ -1220,9 +1223,9 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
           return;
         }
 
-        // Fetch all forecast rows for this simulation_run_id
+        // Fetch all forecast rows for this simulation_run_id that have not been transmitted
         const forecastsResponse = await fetch(
-          `${AI2_SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=*&simulation_run_id=eq.${latestRunId}`,
+          `${AI2_SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=*&simulation_run_id=eq.${latestRunId}&transmitted=eq.false`,
           {
             headers: {
               apikey: AI2_SUPABASE_ANON_KEY,
@@ -1238,33 +1241,39 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
 
         const forecasts = await forecastsResponse.json();
         if (!forecasts || forecasts.length === 0) {
-          console.log("No forecast rows found for the latest simulation run.");
+          console.log("No new forecast rows found for the latest simulation run.");
+          // Still update lastRunId to avoid reprocessing the same run if there are no new rows?
+          // But note: there might be rows that are already transmitted. We want to mark the run as processed only if we have processed all rows?
+          // We'll update lastRunId so we don't keep checking this run if there are no new rows.
+          lastRunId = latestRunId;
           return;
         }
 
-        // Extract storm_name from the first forecast (assuming same storm for the entire run)
-        const stormName = forecasts[0]?.storm_name || "Unknown Storm";
-
-        // Group by simulation_run_id (should be the same for all) and process
-        // We'll process the entire set as one forecast cycle
-        const provinceScores = new Map(); // key: `${country}::${province}` -> best score
-
-        forecasts.forEach((forecast) => {
+        // Process each forecast row
+        for (const forecast of forecasts) {
           const {
             impact_matrix,
             lead_time_hours,
+            storm_name: forecastStormName, // note: the field in the table is storm_name
+            id: forecastId,
           } = forecast;
 
           if (!impact_matrix || !Array.isArray(impact_matrix)) {
             console.warn("Invalid impact_matrix in forecast:", forecast);
-            return;
+            continue;
           }
 
-          impact_matrix.forEach((impact) => {
+          // Extract storm_name from the forecast (if available) or use a default
+          const stormName = forecastStormName || "Unknown Storm";
+
+          // We'll submit reports for each impact in the impact_matrix
+          let allSucceeded = true;
+          const reportPromises = impact_matrix.map(async (impact) => {
             const { country, province, wind_speed_kph, confidence_score } = impact;
 
             if (!country || !province || typeof wind_speed_kph !== "number" || typeof confidence_score !== "number") {
               console.warn("Invalid impact entry:", impact);
+              allSucceeded = false;
               return;
             }
 
@@ -1293,36 +1302,70 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
             }
 
             const weightedScore = normScore * timeWeight;
-            const key = `${country}::${province}`;
 
-            // Keep the maximum weighted score for this province across all forecast horizons
-            const currentBest = provinceScores.get(key) || 0;
-            if (weightedScore > currentBest) {
-              provinceScores.set(key, weightedScore);
+            // Submit the report
+            try {
+              const succeeded = await handleSubmit({
+                id: nextId(),
+                aiType: "typhoon",
+                country,
+                province,
+                score: weightedScore,
+                submittedAt: Date.now(),
+                displayTime: tsDate(),
+                highLang: true,
+                ctx: {
+                  stormName: stormName,
+                },
+              });
+              if (!succeeded) {
+                allSucceeded = false;
+              }
+            } catch (err) {
+              console.error("Error submitting report:", err);
+              allSucceeded = false;
             }
           });
-        });
 
-        // Now, for each province with a score, submit a typhoon AI report
-        provinceScores.forEach((score, key) => {
-          const [country, province] = key.split("::");
-          if (!isMounted) return; // Prevent state update on unmounted component
+          // Wait for all report submissions for this forecast row
+          await Promise.all(reportPromises);
 
-          // Submit the report via the existing handleSubmit prop
-          handleSubmit({
-            id: nextId(),
-            aiType: "typhoon",
-            country,
-            province,
-            score,
-            submittedAt: Date.now(),
-            displayTime: tsDate(), // Reuse the existing tsDate helper
-            highLang: true, // Default to high language for AI reports
-            ctx: {
-              stormName: stormName, // Use the storm name from the forecast batch
-            },
-          });
-        });
+          // Debug logging
+          console.log(`Forecast row ${forecastId}: allSucceeded=${allSucceeded}, forecastId=${forecastId}`);
+
+          // If all reports succeeded, mark this forecast row as transmitted
+          if (allSucceeded && forecastId !== undefined) {
+            try {
+              const updateResponse = await fetch(
+                `${AI2_SUPABASE_URL}/rest/v1/seabeacon_forecasts?id=eq.${forecastId}`,
+                {
+                  method: 'PATCH',
+                  headers: {
+                    apikey: AI2_SUPABASE_ANON_KEY,
+                    Authorization: `Bearer ${AI2_SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ transmitted: true }),
+                }
+              );
+              if (!updateResponse.ok) {
+                const errorText = await updateResponse.text();
+                console.error(`Failed to update forecast row ${forecastId} as transmitted:`, updateResponse.status, errorText);
+              } else {
+                console.log(`Forecast row ${forecastId} marked as transmitted`);
+              }
+            } catch (updateError) {
+              console.error("Error updating forecast row as transmitted:", updateError);
+            }
+          } else {
+            if (!allSucceeded) {
+              console.log(`Forecast row ${forecastId}: not marking as transmitted because some reports failed`);
+            }
+            if (forecastId === undefined) {
+              console.log(`Forecast row has undefined id`);
+            }
+          }
+        }
 
         // Update the last processed run ID
         lastRunId = latestRunId;

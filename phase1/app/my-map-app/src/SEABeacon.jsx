@@ -1387,6 +1387,128 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
     };
   }, [handleSubmit, nextId, tsDate]);
 
+  // Flood prediction processor: polls Supabase for new AI-1 flood predictions and converts to AI reports
+  useEffect(() => {
+    let isMounted = true;
+    let lastProcessedId = null;
+
+    const fetchFloodPredictions = async () => {
+      try {
+        const response = await fetch(
+          `${AI1_SUPABASE_URL}/rest/v1/flood_predictions?select=*&transmitted=eq.false&order=id.asc`,
+          {
+            headers: {
+              apikey: AI1_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${AI1_SUPABASE_ANON_KEY}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          console.error("Failed to fetch flood predictions:", response.status, response.statusText);
+          return;
+        }
+
+        const predictions = await response.json();
+        if (!predictions || predictions.length === 0) {
+          return;
+        }
+
+        for (const pred of predictions) {
+          const {
+            id,
+            country,
+            province,
+            flood_score: rawScore,
+            basin_name,
+            discharge_cms,
+            threshold_cms,
+            flood_horizon_hrs,
+            severity_label,
+          } = pred;
+
+          if (
+            !country ||
+            !province ||
+            typeof rawScore !== "number" ||
+            !basin_name ||
+            !discharge_cms ||
+            !threshold_cms ||
+            !flood_horizon_hrs ||
+            !severity_label
+          ) {
+            console.warn("Invalid flood prediction row:", pred);
+            continue;
+          }
+
+          let normScore = rawScore / 100.0;
+          normScore = Math.max(0.01, Math.min(0.99, normScore));
+
+          try {
+            const succeeded = await handleSubmit({
+              id: nextId(),
+              aiType: "flood",
+              country,
+              province,
+              score: normScore,
+              submittedAt: Date.now(),
+              displayTime: tsDate(),
+              highLang: true,
+              ctx: {
+                basinName: basin_name,
+                discharge: String(discharge_cms),
+                threshold: String(threshold_cms),
+                floodHorizon: String(flood_horizon_hrs),
+                severityLabel: severity_label,
+              },
+            });
+
+            if (!succeeded) {
+              console.error("Failed to submit flood prediction report for id:", id);
+              continue;
+            }
+          } catch (err) {
+            console.error("Error submitting flood prediction report:", err);
+            continue;
+          }
+
+          try {
+            const updateResponse = await fetch(
+              `${AI1_SUPABASE_URL}/rest/v1/flood_predictions?id=eq.${id}`,
+              {
+                method: 'PATCH',
+                headers: {
+                  apikey: AI1_SUPABASE_ANON_KEY,
+                  Authorization: `Bearer ${AI1_SUPABASE_ANON_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ transmitted: true }),
+              }
+            );
+            if (!updateResponse.ok) {
+              const errorText = await updateResponse.text();
+              console.error(`Failed to mark flood prediction ${id} as transmitted:`, updateResponse.status, errorText);
+            }
+          } catch (updateError) {
+            console.error("Error updating flood prediction as transmitted:", updateError);
+          }
+
+          lastProcessedId = id;
+        }
+      } catch (error) {
+        console.error("Error in flood prediction processor:", error);
+      }
+    };
+
+    const intervalId = setInterval(fetchFloodPredictions, 30000);
+    fetchFloodPredictions();
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [handleSubmit, nextId, tsDate, AI1_SUPABASE_URL, AI1_SUPABASE_ANON_KEY]);
+
   // ranked/tier must be declared before simulation effects that reference tier
   const ranked = fuseReports(reports, now, reviewedKeys)
   useEffect(() => { onRankedUpdate?.(ranked) }, [JSON.stringify(ranked)])

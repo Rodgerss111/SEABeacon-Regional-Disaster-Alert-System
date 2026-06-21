@@ -1144,7 +1144,48 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
       setReports(rs => rs.filter(r => Date.now() - r.submittedAt < EXPIRY_MS));
     }, 30000);
     return () => clearInterval(t);
-  }, []);
+  }, [])
+
+  // Fetch reports from Central Supabase to populate the Report Database
+  useEffect(() => {
+    const fetchCentralReports = async () => {
+      try {
+        const response = await fetch(`${CENTRAL_SUPABASE_URL}/rest/v1/seabeacon_reports?select=*&order=submitted_at.desc`, {
+          headers: {
+            apikey: CENTRAL_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${CENTRAL_SUPABASE_ANON_KEY}`,
+          },
+        });
+
+        if (!response.ok) {
+          console.error('Failed to fetch central reports:', response.status, await response.text());
+          return;
+        }
+
+        const data = await response.json();
+        // Map central DB shape to UI report shape
+        const mappedReports = data.map((r) => ({
+          id: r.id,
+          aiType: r.ai_type,
+          country: r.country,
+          province: r.province,
+          score: r.score,
+          submittedAt: new Date(r.submitted_at).getTime(),
+          displayTime: r.display_time,
+          highLang: r.high_lang,
+          ctx: r.ctx,
+        }));
+
+        setReports(mappedReports);
+      } catch (err) {
+        console.error('Error fetching central reports:', err);
+      }
+    };
+
+    fetchCentralReports();
+    const interval = setInterval(fetchCentralReports, 30000);
+    return () => clearInterval(interval);
+  }, [])
 
   const handleSubmit = useCallback(async (report) => {
     // Add to React state for real-time UI updates

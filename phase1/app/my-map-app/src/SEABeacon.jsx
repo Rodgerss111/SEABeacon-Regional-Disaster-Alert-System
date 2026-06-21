@@ -1393,10 +1393,11 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
     const fetchFloodPredictions = async () => {
       try {
         // Build query - get new predictions since last processed
-        let query = `${AI1_SUPABASE_URL}/rest/v1/flood_predictions?select=*&order=id.asc`;
+        let query = `${AI1_SUPABASE_URL}/rest/v1/flood_predictions?select=*&transmitted=eq.false&order=id.asc`;
         if (lastProcessedId !== null) {
-          query = `${AI1_SUPABASE_URL}/rest/v1/flood_predictions?select=*&id=gt.${lastProcessedId}&order=id.asc`;
+          query = `${AI1_SUPABASE_URL}/rest/v1/flood_predictions?select=*&transmitted=eq.false&id=gt.${lastProcessedId}&order=id.asc`;
         }
+        console.log("AI1 flood predictions query:", query);
 
         const response = await fetch(query, {
           headers: {
@@ -1484,8 +1485,29 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
             continue;
           }
 
-          // Note: flood_predictions table doesn't have a transmitted column
-          // Skipping update as column doesn't exist in this table
+          // Update transmitted flag for AI1 prediction
+          try {
+            const updateResponse = await fetch(
+              `${AI1_SUPABASE_URL}/rest/v1/flood_predictions?id=eq.${id}`,
+              {
+                method: 'PATCH',
+                headers: {
+                  apikey: AI1_SUPABASE_ANON_KEY,
+                  Authorization: `Bearer ${AI1_SUPABASE_ANON_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ transmitted: true }),
+              }
+            );
+            if (!updateResponse.ok) {
+              const errorText = await updateResponse.text();
+              console.error(`Failed to update flood prediction ${id} as transmitted:`, updateResponse.status, errorText);
+            } else {
+              console.log(`Flood prediction ${id} marked as transmitted`);
+            }
+          } catch (updateError) {
+            console.error("Error updating flood prediction as transmitted:", updateError);
+          }
 
           // Track the maximum ID we've seen in this batch
           if (id > maxIdInBatch) {

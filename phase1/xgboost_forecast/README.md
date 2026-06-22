@@ -24,15 +24,40 @@ The current model artifact (`seabeacon_xgb_v1.pkl`) was trained on NOAA IBTrACS 
 
 ```text
 xgboost_forecast/
+├── data/                       # 1. DATA WAREHOUSE (Ignored by Git)
+│   ├── raw/                    # Raw IBTrACS CSVs or newly downloaded live data
+│   └── shapefiles/             # GADM Philippines, Vietnam, Thailand polygons (.shp, .dbf)
 │
-├── automation/
-│   └── daemon.py          # The 24/7 background process that pings NASA/GDACS
-├── api/
-│   └── main.py            # FastAPI server to handle DB insertion and routing
-├── models/
-│   └── seabeacon_xgb_v1.pkl # The serialized 3D XGBoost model artifact
-├── src/
-│   ├── predict.py         # AI inference logic and vectorization
-│   └── train.py           # Pipeline for preprocessing NOAA data and model training
-├── .env                   # (Ignored by Git) Contains Supabase credentials
-└── requirements.txt       # Core Python dependencies
+├── notebooks/                  # 3. EXPERIMENTATION & SANDBOX
+│   ├── 01_exploration.ipynb    # Sandbox for testing
+│   └── 02_spatial_migration.ipynb 
+│
+├── src/                        # 4. CORE ENGINE (The Spatial Physics Pipeline)
+│   ├── __init__.py
+│   ├── data_pipeline/
+│   │   ├── fetch_realtime.py   # Pings GDACS/JTWC API (Supports Live & Historical Replay)
+│   │   ├── preprocess.py       # Reusable functions for physics & sliding windows
+│   │   └── noru_playback.json  # Trajectory JSON for time-lapse simulation
+│   ├── model/
+│   │   ├── train.py            # Script to train the XGBoost model and save it
+│   │   └── predict.py          # 72-hour Autoregressive Trajectory Loop
+│   └── nlp/                    # PHASE 2: SOCIAL MEDIA ENGINE
+│       └── simulate_stream.py  # Geofenced Crisis Stream Generator
+│
+├── automation/                 # 5. 24/7 DAEMON & DEMO LAYER
+│   ├── daemon.py               # Hourly scheduler handling deduplication
+│   └── demo_runner.py          # Accelerated 5-second 72-hour simulation loop
+│
+├── api/                        # 6. BACKEND MICROSERVICE
+│   └── main.py                 # FastAPI PostGIS API & Supabase Cloud Logger
+│
+├── integration/                # 7. ENSEMBLE PARTNER SCRIPTS (NEW)
+│   └── lstm_fetch_example.py   # Python REST fetcher for LSTM time-series ingestion
+│
+├── models/                     # 8. SAVED ARTIFACTS
+│   └── seabeacon_xgb_v1.pkl    
+│
+├── .env                        
+├── .gitignore                  
+├── requirements.txt            
+└── README.md         

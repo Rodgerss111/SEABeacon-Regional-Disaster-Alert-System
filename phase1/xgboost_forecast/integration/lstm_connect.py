@@ -1,12 +1,21 @@
+import os
 import requests
 import json
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+except ImportError:
+    pass
+
+# Supabase project ref comes from .env (falls back to the AI2 forecast project)
+PROJECT_REF = os.getenv("SUPABASE_PROJECT_REF", "axigjjehzqghflrvewaj")
 
 def get_latest_simulation_id(supabase_anon_key):
     """
     Automatically queries the Supabase database to find the 
     simulation_run_id of the most recently inserted forecast.
     """
-    PROJECT_REF = "axigjjehzqghflrvewaj"
     TABLE_NAME = "seabeacon_forecasts"
     url = f"https://{PROJECT_REF}.supabase.co/rest/v1/{TABLE_NAME}"
     
@@ -55,7 +64,6 @@ def fetch_xgboost_forecasts(simulation_run_id, supabase_anon_key):
     - Lead Time Hours       (NEW)
     """
     
-    PROJECT_REF = "axigjjehzqghflrvewaj"
     TABLE_NAME = "seabeacon_forecasts"
     
     # THE FIX: Added base_timestamp and lead_time_hours to the Supabase SQL query
@@ -88,9 +96,9 @@ def fetch_xgboost_forecasts(simulation_run_id, supabase_anon_key):
 
 if __name__ == "__main__":
     # --- INSTRUCTIONS FOR LSTM ENGINEER ---
-    # 1. Provide the 'anon public' key here
-    YOUR_ANON_KEY = "PASTE_THE_ANON_KEY_HERE"
-    
+    # 1. The 'anon public' key is read from .env (SUPABASE_ANON_KEY). See .env.example.
+    YOUR_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
+
     # 2. AUTO-FETCH THE LATEST RUN (No manual ID required!)
     TARGET_RUN_ID = get_latest_simulation_id(YOUR_ANON_KEY) 
     

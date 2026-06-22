@@ -1185,15 +1185,15 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
   const alertIdRef = useRef(1);
   const [logEntries, setLogEntries] = useState([]);
 
-  // Supabase configurations
-  const AI1_SUPABASE_URL = "https://dwatfuqltzastxymqaty.supabase.co";
-  const AI1_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybnJ2aGRyenZlc2Z0eXlraWFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDAwMTUsImV4cCI6MjA5NzM3NjAxNX0.7Nig4nl37BTnpBGfUS844I_cc3b5YHnUIerwdbalBRk";
-  const AI2_SUPABASE_URL = "https://axigjjehzqghflrvewaj.supabase.co";
-  const AI2_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4aWdqamVoenFnaGZscnZld2FqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MjA0MDYsImV4cCI6MjA5NzM5NjQwNn0.uQBx8gGXKLmCI-jUnDArpAt6RFMiOSYYFzol4yCclVE";
-  const AI3_SUPABASE_URL = "https://abowclxaasswcvhuxjzx.supabase.co";
-  const AI3_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53bHpndnVuYnBzaGZidnFueGpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MTg3NDgsImV4cCI6MjA5NzE5NDc0OH0.-a4G8zxZ2ruWdHLRvk4fSCYpGw597ucxzeEvZUchtrQ";
-  const CENTRAL_SUPABASE_URL = "https://kiyiqwcbbjjkbxjpsovg.supabase.co";
-  const CENTRAL_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpeWlxd2NiYmpqa2J4anBzb3ZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODc1NzUsImV4cCI6MjA5NTk2MzU3NX0.OkfwMNSNTC8OGCHzDmomtwOX9N3j-CRkUOdyttq_-48";
+  // Supabase configurations — sourced from .env (VITE_* vars). See .env.example.
+  const AI1_SUPABASE_URL = import.meta.env.VITE_AI1_SUPABASE_URL;
+  const AI1_SUPABASE_ANON_KEY = import.meta.env.VITE_AI1_SUPABASE_ANON_KEY;
+  const AI2_SUPABASE_URL = import.meta.env.VITE_AI2_SUPABASE_URL;
+  const AI2_SUPABASE_ANON_KEY = import.meta.env.VITE_AI2_SUPABASE_ANON_KEY;
+  const AI3_SUPABASE_URL = import.meta.env.VITE_AI3_SUPABASE_URL;
+  const AI3_SUPABASE_ANON_KEY = import.meta.env.VITE_AI3_SUPABASE_ANON_KEY;
+  const CENTRAL_SUPABASE_URL = import.meta.env.VITE_CENTRAL_SUPABASE_URL;
+  const CENTRAL_SUPABASE_ANON_KEY = import.meta.env.VITE_CENTRAL_SUPABASE_ANON_KEY;
 
   // Tick every 30s to update expiry bars and purge expired records
   useEffect(() => {

@@ -1,0 +1,8 @@
+# xgboost_forecast service dependencies
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+pydantic
+requests
+python-dotenv

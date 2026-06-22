@@ -1,9 +1,18 @@
+import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 import uvicorn
 from typing import List, Dict, Any
+
+# Load credentials from .env (sits at the xgboost_forecast/ root). Optional import
+# so the app still starts in environments where the vars are set another way.
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
+except ImportError:
+    pass
 
 # 1. Initialize FastAPI Application
 app = FastAPI(
@@ -13,8 +22,8 @@ app = FastAPI(
 )
 
 # 2. Database Connection Configuration.
-# Mapped directly to your running PostGIS Docker container
-DATABASE_URL = "postgresql://seabeacon:securepassword@localhost:5432/spatial_db"
+# Mapped to your running PostGIS Docker container (set DATABASE_URL in .env)
+DATABASE_URL = os.environ["DATABASE_URL"]
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 # 3. Define Pydantic Input Schema (Updated for Pydantic V2 compliance)
@@ -63,8 +72,8 @@ class AlertResponse(BaseModel):
     impacted_count: int
     impacted_regions: List[ImpactedRegion]
 
-# --- NEW: SUPABASE CONNECTION FOR LSTM DATA ---
-SUPABASE_URL = "postgresql://postgres.axigjjehzqghflrvewaj:loGiwer21Glw@aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres"
+# --- NEW: SUPABASE CONNECTION FOR LSTM DATA (set SUPABASE_DB_URL in .env) ---
+SUPABASE_URL = os.environ["SUPABASE_DB_URL"]
 supabase_engine = create_engine(SUPABASE_URL)
 
 @app.get("/health")

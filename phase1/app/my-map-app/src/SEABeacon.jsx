@@ -779,12 +779,6 @@ function ProvinceRankings({ ranked, topProvince }) {
               transition: "opacity 0.3s, filter 0.3s",
               position:"relative" }}>
 
-            {isTop && tier && (
-              <div style={{ position:"absolute", top:10, right:14 }}>
-                <Tag label="▲ TOP TARGET" color={tColor}/>
-              </div>
-            )}
-
             <div style={{ display:"flex", alignItems:"flex-start", gap:14 }}>
               {/* Rank */}
               <div style={{ fontSize:20, fontWeight:800, fontFamily:"monospace",
@@ -794,9 +788,10 @@ function ProvinceRankings({ ranked, topProvince }) {
 
               {/* Main info */}
               <div style={{ flex:1 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6, flexWrap:"wrap", rowGap:6 }}>
                   <span style={{ fontSize:14, fontWeight:800, color:C.text }}>{prov.province}</span>
                   <span style={{ fontSize:10, color:C.textDim }}>{prov.country}</span>
+                  {isTop && tier && <Tag label="▲ TOP TARGET" color={tColor}/>}
                   {tier && <Tag label={tier.toUpperCase()} color={tColor}/>}
                   {hasPattern && <Tag label={`${prov.uniqueTypes} AI TYPES`} color={C.teal}/>}
                   {prov.reviewed && <Tag label="REVIEWED" color={C.textDim}/>}

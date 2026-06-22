@@ -1150,21 +1150,33 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
   useEffect(() => {
     const fetchCentralReports = async () => {
       try {
-        const response = await fetch(`${CENTRAL_SUPABASE_URL}/rest/v1/seabeacon_reports?select=*&order=submitted_at.desc`, {
-          headers: {
-            apikey: CENTRAL_SUPABASE_ANON_KEY,
-            Authorization: `Bearer ${CENTRAL_SUPABASE_ANON_KEY}`,
-          },
-        });
+        let allReports = [];
+        let offset = 0;
+        const limit = 1000; // safe batch size
+        while (true) {
+          const response = await fetch(`${CENTRAL_SUPABASE_URL}/rest/v1/seabeacon_reports?select=*&order=submitted_at.desc&limit=${limit}&offset=${offset}`, {
+            headers: {
+              apikey: CENTRAL_SUPABASE_ANON_KEY,
+              Authorization: `Bearer ${CENTRAL_SUPABASE_ANON_KEY}`,
+            },
+          });
 
-        if (!response.ok) {
-          console.error('Failed to fetch central reports:', response.status, await response.text());
-          return;
+          if (!response.ok) {
+            console.error('Failed to fetch central reports batch:', response.status, await response.text());
+            break;
+          }
+
+          const data = await response.json();
+          if (data.length === 0) break;
+
+          allReports = allReports.concat(data);
+          if (data.length < limit) break; // last batch
+
+          offset += limit;
         }
 
-        const data = await response.json();
         // Map central DB shape to UI report shape
-        const mappedReports = data.map((r) => ({
+        const mappedReports = allReports.map((r) => ({
           id: r.id,
           aiType: r.ai_type,
           country: r.country,
@@ -1176,6 +1188,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
           ctx: r.ctx,
         }));
 
+        console.log(`Fetched ${mappedReports.length} reports from central Supabase`);
         setReports(mappedReports);
       } catch (err) {
         console.error('Error fetching central reports:', err);

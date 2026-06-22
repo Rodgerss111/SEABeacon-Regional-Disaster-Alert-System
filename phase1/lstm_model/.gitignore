@@ -1,0 +1,14 @@
+# Secrets — never commit the real .env
+.env
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Daemon runtime state
+seabeacon_a_last_state.json
+
+# OS junk
+.DS_Store

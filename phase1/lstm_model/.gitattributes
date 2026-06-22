@@ -1,0 +1,6 @@
+# Track the trained model with Git LFS — .keras files are binary and can
+# be tens of MB, which GitHub handles poorly without LFS.
+# Mirrors the same pattern used in xgboost_forecast ("tracking large data
+# files with Git LFS").
+
+model/*.keras filter=lfs diff=lfs merge=lfs -text

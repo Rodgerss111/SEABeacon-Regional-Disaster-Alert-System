@@ -1,0 +1,12 @@
+Download these 4 files from your Kaggle Model and place them in this folder:
+
+  1. best_model_phase2.keras
+  2. scaler_params_v2.json
+  3. feature_cols.json
+  4. basin_meta.csv
+
+Source (Kaggle):
+  /kaggle/input/models/enzodacanay/newphase2model-asean/keras/default/1/
+
+Without these files, model_loader.load_artifacts() will raise
+FileNotFoundError when any script in this folder runs.

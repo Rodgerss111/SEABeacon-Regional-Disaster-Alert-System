@@ -490,8 +490,16 @@ function ExpiryBar({ submittedAt, now }) {
   );
 }
 
+const PAGE_SIZE = 20;
+
 function ReportsTable({ reports, now, onClear, reviewedKeys }) {
   const [showReviewed, setShowReviewed] = useState(false);
+  const [sortKey, setSortKey] = useState("province"); // "province" | "aiType" | "score"
+  const [sortDir, setSortDir] = useState("asc");       // "asc" | "desc"
+  const [page, setPage]       = useState(0);
+
+  // Reset to first page whenever the sort changes
+  useEffect(() => { setPage(0); }, [sortKey, sortDir]);
 
   // A report is "used" if it was submitted before its province was reviewed
   const isUsed = r => {
@@ -502,23 +510,36 @@ function ReportsTable({ reports, now, onClear, reviewedKeys }) {
   const activeReports   = reports.filter(r => !isUsed(r));
   const reviewedReports = reports.filter(r =>  isUsed(r));
 
-  // Sort + shade each group independently
+  // Sort + shade each group independently — honors the active sort selection
   function buildRows(rpts) {
+    const dir = sortDir === "asc" ? 1 : -1;
+    const provKey = r => `${r.country}::${r.province}`;
     const sorted = [...rpts].sort((a,b) => {
-      const pk = r => `${r.country}::${r.province}`;
-      if (pk(a) !== pk(b)) return pk(a).localeCompare(pk(b));
-      return b.submittedAt - a.submittedAt;
+      let cmp = 0;
+      if (sortKey === "province")   cmp = provKey(a).localeCompare(provKey(b));
+      else if (sortKey === "aiType") cmp = String(a.aiType).localeCompare(String(b.aiType));
+      else if (sortKey === "score")  cmp = a.score - b.score;
+      if (cmp !== 0) return cmp * dir;
+      return b.submittedAt - a.submittedAt; // tiebreak: newest first
     });
-    let lastProv = null; let shade = false;
+    // Alternate shade by the primary group (province, or AI source when sorted by it)
+    const groupKey = sortKey === "aiType" ? (r => r.aiType) : provKey;
+    let lastKey = null; let shade = false;
     return sorted.map(r => {
-      const provKey = `${r.country}::${r.province}`;
-      if (provKey !== lastProv) { shade = !shade; lastProv = provKey; }
+      const k = groupKey(r);
+      if (k !== lastKey) { shade = !shade; lastKey = k; }
       return { ...r, shade };
     });
   }
 
   const activeRows   = buildRows(activeReports);
   const reviewedRows = buildRows(reviewedReports);
+
+  // Pagination over active rows
+  const totalPages = Math.max(1, Math.ceil(activeRows.length / PAGE_SIZE));
+  const safePage   = Math.min(page, totalPages - 1);
+  const pageStart  = safePage * PAGE_SIZE;
+  const pagedRows  = activeRows.slice(pageStart, pageStart + PAGE_SIZE);
 
   function ctxSummary(r) {
     if (!r.ctx) return "—";
@@ -597,11 +618,25 @@ function ReportsTable({ reports, now, onClear, reviewedKeys }) {
     );
   }
 
+  const toggleSort = key => {
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  };
+  const SortHead = ({ label, k }) => {
+    const active = sortKey === k;
+    return (
+      <span onClick={() => toggleSort(k)} title="Click to sort"
+        style={{ cursor:"pointer", userSelect:"none", display:"inline-flex", alignItems:"center", gap:3,
+          color: active ? C.blue : C.textDim }}>
+        {label}{active && <span style={{ fontSize:8 }}>{sortDir === "asc" ? "▲" : "▼"}</span>}
+      </span>
+    );
+  };
   const ColHeaders = () => (
     <div style={{ display:"grid", gridTemplateColumns:"80px 160px 110px 1fr 90px 100px", gap:0,
       padding:"6px 18px", background:C.surfaceHi, borderBottom:`0.5px solid ${C.border}`,
       fontSize:9, fontWeight:700, color:C.textDim, letterSpacing:"0.08em", textTransform:"uppercase" }}>
-      <span>AI Source</span><span>Province</span><span>Score</span><span>Context</span><span>Report ID</span><span>Expires</span>
+      <SortHead label="AI Source" k="aiType"/><SortHead label="Province" k="province"/><SortHead label="Score" k="score"/><span>Context</span><span>Report ID</span><span>Expires</span>
     </div>
   );
 
@@ -643,19 +678,42 @@ function ReportsTable({ reports, now, onClear, reviewedKeys }) {
         </div>
       ) : (
         <>
-          {/* Active rows — max 20, scrollable */}
+          {/* Active rows — paginated */}
           {activeRows.length > 0 ? (
             <>
               <ColHeaders/>
-              <div style={{ maxHeight: 20 * 52, overflowY:"auto" }}>
-                {activeRows.slice(0, 20).map(r => <ReportRow key={r.id} r={r} used={false}/>)}
-                {activeRows.length > 20 && (
-                  <div style={{ padding:"8px 18px", fontSize:10, color:C.textDim, textAlign:"center",
-                    borderTop:`0.5px solid ${C.border}`, background:C.surfaceHi }}>
-                    Showing 20 of {activeRows.length} — older rows hidden. Clear to reset.
-                  </div>
-                )}
+              <div style={{ maxHeight: PAGE_SIZE * 52, overflowY:"auto" }}>
+                {pagedRows.map(r => <ReportRow key={r.id} r={r} used={false}/>)}
               </div>
+              {activeRows.length > PAGE_SIZE && (
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+                  padding:"8px 18px", borderTop:`0.5px solid ${C.border}`, background:C.surfaceHi }}>
+                  <span style={{ fontSize:10, color:C.textDim }}>
+                    {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, activeRows.length)} of {activeRows.length}
+                  </span>
+                  <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                    {[["« First",0],["‹ Prev",safePage-1]].map(([label,target]) => (
+                      <button key={label} disabled={safePage === 0}
+                        onClick={() => setPage(Math.max(0, target))}
+                        style={{ fontSize:10, fontWeight:600, color: safePage === 0 ? C.textDim : C.blue,
+                          background: C.surface, border:`0.5px solid ${C.border}`, borderRadius:6,
+                          padding:"4px 8px", cursor: safePage === 0 ? "default" : "pointer",
+                          opacity: safePage === 0 ? 0.4 : 1 }}>{label}</button>
+                    ))}
+                    <span style={{ fontSize:10, color:C.textDim, fontFamily:"monospace", minWidth:60, textAlign:"center" }}>
+                      {safePage + 1} / {totalPages}
+                    </span>
+                    {[["Next ›",safePage+1],["Last »",totalPages-1]].map(([label,target]) => (
+                      <button key={label} disabled={safePage >= totalPages - 1}
+                        onClick={() => setPage(Math.min(totalPages - 1, target))}
+                        style={{ fontSize:10, fontWeight:600, color: safePage >= totalPages-1 ? C.textDim : C.blue,
+                          background: C.surface, border:`0.5px solid ${C.border}`, borderRadius:6,
+                          padding:"4px 8px", cursor: safePage >= totalPages-1 ? "default" : "pointer",
+                          opacity: safePage >= totalPages-1 ? 0.4 : 1 }}>{label}</button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div style={{ padding:"18px", textAlign:"center", color:C.textDim, fontSize:12,

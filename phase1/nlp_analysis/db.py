@@ -44,6 +44,10 @@ def save_raw_article(article: dict):
 _province_result = supabase.table("provinces").select("*").execute()
 PROVINCES = [p["province_name"] for p in _province_result.data]
 
+PROVINCES_BY_COUNTRY: dict[str, list[str]] = {}
+for p in _province_result.data:
+    PROVINCES_BY_COUNTRY.setdefault(p["country"], []).append(p["province_name"])
+
 _neighbor_result = supabase.table("province_neighbors").select("*").execute()
 NEIGHBOR_MAP: dict[str, list[str]] = {}
 

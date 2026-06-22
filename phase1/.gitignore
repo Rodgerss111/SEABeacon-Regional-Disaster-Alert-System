@@ -1,0 +1,11 @@
+# Environment files — never commit real secrets. Templates (.env.example) are kept.
+.env
+.env.*
+!.env.example
+
+# Logs (may contain credentials, request signatures, etc.)
+*.log
+
+# Python
+__pycache__/
+*.pyc

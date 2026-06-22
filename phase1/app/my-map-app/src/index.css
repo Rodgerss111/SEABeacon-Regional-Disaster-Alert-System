@@ -73,6 +73,19 @@ html, body {
   box-sizing: border-box;
 }
 
+/* On phones/tablets the two-pane layout stacks, so let the page scroll. */
+@media (max-width: 900px) {
+  html, body {
+    height: auto;
+    overflow: auto;
+  }
+  #root {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
+  }
+}
+
 h1,
 h2 {
   font-family: var(--heading);

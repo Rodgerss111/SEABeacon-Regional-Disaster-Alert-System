@@ -9,15 +9,22 @@ from db import PROVINCES, get_neighbors
 
 def extract_storm_name(text: str) -> str | None:
     patterns = [
-        r"Typhoon\s+([A-Z][a-zA-Z]+)",
-        r"Tropical Storm\s+([A-Z][a-zA-Z]+)",
-        r"Tropical Depression\s+([A-Z][a-zA-Z]+)"
+        r"[Tt]yphoon\s+([A-Z][a-zA-Z]+)",
+        r"[Ss]evere [Tt]ropical [Ss]torm\s+([A-Z][a-zA-Z]+)",
+        r"[Tt]ropical [Ss]torm\s+([A-Z][a-zA-Z]+)",
+        r"[Tt]ropical [Dd]epression\s+([A-Z][a-zA-Z]+)"
     ]
 
+    # Common false positives even with correct capitalization handling
+    blacklist = {"is", "was", "may", "will", "season", "outside",
+                 "intensity", "near", "over", "still", "also", "now", "the"}
+
     for pattern in patterns:
-        match = re.search(pattern, text, re.I)
+        match = re.search(pattern, text)  # no re.I — capture group stays strictly uppercase-only
         if match:
-            return match.group(1)
+            candidate = match.group(1)
+            if candidate.lower() not in blacklist:
+                return candidate
 
     return None
 

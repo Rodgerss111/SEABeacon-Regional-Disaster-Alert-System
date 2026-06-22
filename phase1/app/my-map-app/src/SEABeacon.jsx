@@ -1551,7 +1551,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
                 country: country,
                 province: prov,
                 score: normScore,
-                submittedAt: new Date(updated_at).getTime(),
+                submittedAt: Date.now(),
                 displayTime: tsDate(),
                 highLang: true, // Assume high language resource for NLP predictions
                 ctx: {

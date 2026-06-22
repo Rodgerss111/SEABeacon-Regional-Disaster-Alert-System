@@ -677,7 +677,8 @@ function ReportsTable({ reports, now, onClear, reviewedKeys }) {
           No reports yet. Submit from any AI panel above to populate the database.
         </div>
       ) : (
-        <>
+        <div style={{ overflowX:"auto" }}>
+          <div style={{ minWidth:680 }}>
           {/* Active rows — paginated */}
           {activeRows.length > 0 ? (
             <>
@@ -736,7 +737,8 @@ function ReportsTable({ reports, now, onClear, reviewedKeys }) {
               </div>
             </>
           )}
-        </>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1749,7 +1751,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
           </button>
         </div>
         {showPanels && (
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:8 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap:12, marginBottom:8 }}>
             <AIInputPanel aiType="flood"   onSubmit={handleSubmit}/>
             <AIInputPanel aiType="typhoon" onSubmit={handleSubmit}/>
             <AIInputPanel aiType="social"  onSubmit={handleSubmit}/>
@@ -1806,7 +1808,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
 
         {/* Tier protocol */}
         <SectionLabel>Three-tier alert protocol</SectionLabel>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10, marginBottom:8 }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 150px), 1fr))", gap:10, marginBottom:8 }}>
           <TierCard tier="Watch" active={tier==="Watch"}/>
           <TierCard tier="Advisory" active={tier==="Advisory"}/>
           <TierCard tier="Warning" active={tier==="Warning"}/>
@@ -1828,7 +1830,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
               </div>
               <Tag label={tier.toUpperCase()} color={tierColor(tier)}/>
             </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap:8 }}>
               <ChannelCard icon="💬" platform="Messenger / Telegram" lang="Filipino · English" message={alertText}/>
               <ChannelCard icon="💚" platform="LINE" lang="Thai · English" message={alertText}/>
               <ChannelCard icon="🟦" platform="Zalo" lang="Vietnamese · English" message={alertText}/>

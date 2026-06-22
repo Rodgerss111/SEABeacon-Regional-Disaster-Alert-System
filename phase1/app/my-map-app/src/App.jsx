@@ -1,12 +1,28 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import MapPanel from './MapPanel'
 import SEABeacon from './SEABeacon'
+
+// Small viewport detector. Stacks the two-pane layout on phones/tablets.
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches
+  )
+  useEffect(() => {
+    const mql = window.matchMedia(query)
+    const onChange = (e) => setMatches(e.matches)
+    setMatches(mql.matches)
+    mql.addEventListener('change', onChange)
+    return () => mql.removeEventListener('change', onChange)
+  }, [query])
+  return matches
+}
 
 export default function App() {
   const [selectedProvince, setSelectedProvince] = useState(null)
   const [alertsByProvince, setAlertsByProvince] = useState({})
   const [markers, setMarkers] = useState([])
   const [mapMode, setMapMode] = useState('alert')
+  const isNarrow = useMediaQuery('(max-width: 900px)')
 
   const handleRankedUpdate = useCallback((ranked) => {
     console.log('Ranked provinces from SEABeacon:', ranked.map(r => r.province))
@@ -21,21 +37,24 @@ export default function App() {
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: '50fr 50fr',
-      height: '100vh',
-      width: '100vw',
-      overflow: 'hidden',
+      // Desktop: two equal columns. Narrow: single column that stacks.
+      gridTemplateColumns: isNarrow ? '1fr' : '50fr 50fr',
+      height: isNarrow ? 'auto' : '100vh',
+      minHeight: '100vh',
+      width: '100%',
+      overflow: isNarrow ? 'visible' : 'hidden',
       fontFamily: "'DM Sans', sans-serif",
       background: '#EEF3FA',
     }}>
 
-    {/*// In the left div, replace the inner grid with:*/}
+    {/* Left — province map */}
     <div style={{
       display: 'flex',
       flexDirection: 'column',
       gap: 8,
       padding: 8,
-      height: '100vh',
+      height: isNarrow ? 'auto' : '100vh',
+      minWidth: 0, // allow the grid column to shrink instead of forcing overflow
       overflow: 'hidden',
     }}>
       {/* Toggle header */}
@@ -62,8 +81,14 @@ export default function App() {
         </div>
       </div>
 
-      {/* Single map that switches mode */}
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {/* Single map that switches mode. On narrow screens it gets a fixed
+          height instead of filling the viewport so the panel below can flow. */}
+      <div style={{
+        flex: isNarrow ? 'none' : 1,
+        height: isNarrow ? '52vh' : 'auto',
+        minHeight: isNarrow ? 300 : 0,
+        overflow: 'hidden',
+      }}>
         <MapPanel
           mode={mapMode}
           alertsByProvince={alertsByProvince}
@@ -76,8 +101,11 @@ export default function App() {
 
       {/* Right — SEABeacon panel */}
       <div style={{
-        borderLeft: '1px solid rgba(0,0,0,0.08)',
-        overflowY: 'auto',
+        borderLeft: isNarrow ? 'none' : '1px solid rgba(0,0,0,0.08)',
+        borderTop: isNarrow ? '1px solid rgba(0,0,0,0.08)' : 'none',
+        // Desktop: this pane scrolls on its own. Narrow: it flows into page scroll.
+        overflowY: isNarrow ? 'visible' : 'auto',
+        minWidth: 0, // critical: stops wide children from forcing the grid past the viewport
         background: '#FFFFFF',
       }}>
         <SEABeacon

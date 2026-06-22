@@ -1,0 +1,9 @@
+requests
+beautifulsoup4
+newspaper4k
+lxml_html_clean
+pandas
+supabase
+transformers
+torch
+python-dotenv

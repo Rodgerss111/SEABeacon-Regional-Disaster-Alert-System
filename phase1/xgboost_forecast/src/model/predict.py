@@ -4,6 +4,7 @@ import requests
 import joblib
 import numpy as np
 import datetime
+import json
 
 # Dynamically add the src directory to the python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -45,8 +46,18 @@ def simulate_live_inference():
     model = joblib.load(MODEL_PATH)
     
     print("--> 2. Triggering Live Data Ingest Pipeline...")
-    # Fetch and Vectorize the data natively!
-    raw_api_data = fetch_active_typhoon_data(live_mode=False)
+    
+    # --- THE FIX: INTERCEPT THE DAEMON PAYLOAD ---
+    live_payload_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data_pipeline', 'current_demo_state.json'))
+    
+    if os.path.exists(live_payload_path):
+        with open(live_payload_path, 'r') as f:
+            raw_api_data = json.load(f)
+        print("--> [Predict] Successfully loaded live payload intercepted from Daemon.")
+    else:
+        print("--> [Predict] No Daemon payload found. Defaulting to safe mode simulation...")
+        raw_api_data = fetch_active_typhoon_data(live_mode=False)
+        
     current_ml_vector, storm_name, current_time = vectorize_live_payload(raw_api_data)
     
     # Extract the Simulation ID for Supabase logging
@@ -107,8 +118,8 @@ def simulate_live_inference():
             payload = {
                 "simulation_run_id": simulation_run_id,
                 "storm_name": storm_name,
-                "base_timestamp": current_time.isoformat().replace("+00:00", "Z"), # NEW: When the forecast was made
-                "lead_time_hours": step * 6,                                       # NEW: The forecast horizon (6, 12, etc.)
+                "base_timestamp": current_time.isoformat().replace("+00:00", "Z"), # When the forecast was made
+                "lead_time_hours": step * 6,                                       # The forecast horizon (6, 12, etc.)
                 "timestamp": forecast_time.isoformat().replace("+00:00", "Z"), 
                 "latitude": float(round(next_lat, 4)),
                 "longitude": float(round(next_lon, 4)),

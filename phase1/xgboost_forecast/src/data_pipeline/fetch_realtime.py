@@ -1,116 +1,67 @@
-import numpy as np
 import pandas as pd
-import requests
 from datetime import datetime, timezone
+import numpy as np
+import requests # Back to standard, reliable requests!
 
-def fetch_active_typhoon_data(live_mode=False, replay_event_id=None):
-    import os
-    import json
-    
-    # --- INTERCEPT FOR DEMO RUNNER ---
-    demo_file = os.path.join(os.path.dirname(__file__), 'current_demo_state.json')
-    if os.path.exists(demo_file):
-        print("--> [Ingest] Intercepted rapid-fire demo state file. Bypassing APIs.")
-        with open(demo_file, 'r') as f:
-            return json.load(f)
-    """
-    Connects to external meteorological APIs to pull active storms,
-    strictly filtering for the Western Pacific domain.
-    """
-    print("--> [Ingest] Pinging Meteorological API for active cyclones...")
-    
-    # ---------------------------------------------------------
-    # HISTORICAL REPLAY MODE
-    # ---------------------------------------------------------
-    if replay_event_id:
-        print(f"--> [Ingest] Testing mode active. Replaying historical API JSON for Event {replay_event_id}...")
-        current_time = datetime(2013, 11, 7, 12, 0, 0, tzinfo=timezone.utc)
-        return {
-            "storm_name": f"Archived Typhoon {replay_event_id} (Replay)",
-            "agency": "GDACS Historical Archive",
-            "updates": [
-                {
-                    "timestamp": (current_time - pd.Timedelta(hours=12)).isoformat(),
-                    "latitude": 14.50, "longitude": 122.50, 
-                    "wind_kph": 185.0, "pressure_hpa": 945.0,
-                    "distance_to_land_km": 150.0
-                },
-                {
-                    "timestamp": (current_time - pd.Timedelta(hours=6)).isoformat(),
-                    "latitude": 15.10, "longitude": 121.20,
-                    "wind_kph": 205.0, "pressure_hpa": 930.0,
-                    "distance_to_land_km": 50.0
-                },
-                {
-                    "timestamp": current_time.isoformat(),
-                    "latitude": 15.60, "longitude": 119.80, 
-                    "wind_kph": 220.0, "pressure_hpa": 915.0,
-                    "distance_to_land_km": 0.0
-                }
-            ]
-        }
-        
-    # ---------------------------------------------------------
-    # PRODUCTION LIVE MODE (With West Pacific Filter & Stealth)
-    # ---------------------------------------------------------
+def fetch_active_typhoon_data(live_mode=False):
     if live_mode:
-        print("--> [Ingest] Initiating live HTTP request to stable GDACS Root API...")
+        print("--> [Ingest] Connecting to NASA EONET (Earth Observatory) API...")
         try:
-            url = "https://www.gdacs.org/xml/rss_7d.geojson"
+            # NASA's open API for severe storms (Zero Firewalls)
+            url = "https://eonet.gsfc.nasa.gov/api/v3/events?category=severeStorms&status=open"
             
-            # THE FIX: Advanced Stealth Headers to bypass Cloudflare/WAF Bot Protection
-            headers = {
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
-                "Accept-Encoding": "gzip, deflate, br",
-                "Connection": "keep-alive",
-                "Upgrade-Insecure-Requests": "1",
-                "Sec-Fetch-Dest": "document",
-                "Sec-Fetch-Mode": "navigate",
-                "Sec-Fetch-Site": "none",
-                "Sec-Fetch-User": "?1",
-                "Cache-Control": "max-age=0"
-            }
+            response = requests.get(url, timeout=15)
+            response.raise_for_status()
+            data = response.json()
             
-            response = requests.get(url, headers=headers, timeout=15)
-            
-            if response.status_code == 200:
-                try:
-                    events = response.json()
-                    features = events.get('features', [])
-                    print(f"--> [Ingest] Connected. Scanning {len(features)} recent global events...")
-                    
-                    # --- THE WESTERN PACIFIC FILTER ---
-                    wp_storms = []
-                    for event in features:
-                        props = event.get('properties', {})
-                        
-                        if props.get('eventtype') == 'TC':
-                            if 'geometry' in event and event['geometry']['type'] == 'Point':
-                                lon, lat = event['geometry']['coordinates']
-                                
-                                # Check Bounding Box (Lat 0-60N, Lon 100-180E)
-                                if 0 <= lat <= 60 and 100 <= lon <= 180:
-                                    wp_storms.append(props.get('name', 'Unknown WP Storm'))
-                    
-                    if not wp_storms:
-                        print("--> [Ingest] ✅ No active tropical cyclones detected in the WESTERN PACIFIC.")
-                        print("--> [Ingest] Standing down daemon to save resources.")
-                        return None
-                    else:
-                        print(f"--> [Ingest] ⚠️ THREAT DETECTED: Found {len(wp_storms)} active storm(s) in the West Pacific: {', '.join(wp_storms)}")
-                        print("--> [Ingest] Routing coordinates to XGBoost Engine...")
-                        
-                except ValueError:
-                    print("--> [Ingest] CRITICAL: API returned HTML/XML instead of JSON (Firewall Block). Falling back to safe mode.")
-                    
-            else:
-                print(f"--> [Ingest] API returned Error {response.status_code}. Falling back to safe mode.")
+            # Search NASA's active events for Typhoons or Cyclones
+            for event in data.get('events', []):
+                title = event.get('title', '').lower()
                 
-        except requests.exceptions.RequestException as e:
-            print(f"--> [Ingest] CRITICAL: Internet connection failed ({e}). Falling back to safe mode.")
-    
+                # We need at least 3 historical points to calculate momentum for your XGBoost
+                geometries = event.get('geometry', [])
+                
+                if ('typhoon' in title or 'cyclone' in title or 'hurricane' in title) and len(geometries) >= 3:
+                    storm_name = event.get('title')
+                    print(f"--> [Ingest] ✅ NASA Data Acquired: {storm_name}")
+                    
+                    # Get the most recent 3 track points (t-12, t-6, t0)
+                    track = geometries[-3:]
+                    updates = []
+                    
+                    for geo in track:
+                        lon, lat = geo['coordinates']
+                        # NASA provides wind in knots. Convert to KPH for your engine.
+                        wind_kts = geo.get('magnitudeValue') or 50.0 
+                        wind_kph = wind_kts * 1.852
+                        
+                        # Estimate pressure dynamically from wind speed for the ML engine
+                        pressure_hpa = 1010 - (wind_kph / 10.0)
+                        
+                        updates.append({
+                            "timestamp": geo['date'],
+                            "latitude": lat,
+                            "longitude": lon,
+                            "wind_kph": round(wind_kph, 2),
+                            "pressure_hpa": round(pressure_hpa, 2),
+                            "distance_to_land_km": 150.0 # Placeholder assumption for open ocean
+                        })
+                        
+                    api_payload = {
+                        "storm_name": storm_name,
+                        "agency": "NASA EONET",
+                        "updates": updates
+                    }
+                    
+                    # Pass the clean NASA data down to your AI vectorizer
+                    return api_payload
+            
+            print("--> [Ingest] NASA EONET currently shows zero active storms with sufficient tracking data.")
+            print("--> [Ingest] Falling back to safe mode simulation...")
+
+        except Exception as e:
+            print(f"--> [Ingest] CRITICAL: NASA EONET connection failed ({e}). Falling back to safe mode.")
+
     # ---------------------------------------------------------
     # FAILSAFE DEMO PAYLOAD (Simulating Super Typhoon Yagi 2024)
     # ---------------------------------------------------------

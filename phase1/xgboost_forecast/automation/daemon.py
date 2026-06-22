@@ -2,15 +2,18 @@ import sys
 import os
 import json
 import subprocess
+import time
 from datetime import datetime
+import uuid
 
 # Dynamically add the root directory to the python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.data_pipeline.fetch_realtime import fetch_active_typhoon_data
 
-# The local memory file where the daemon tracks what it has already processed
+# Paths
 STATE_FILE = os.path.join(os.path.dirname(__file__), 'last_state.json')
+LIVE_PAYLOAD_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src', 'data_pipeline', 'current_demo_state.json'))
 
 def load_last_state():
     """Loads the timestamp of the last processed storm update."""
@@ -24,56 +27,72 @@ def save_state(name, timestamp):
     with open(STATE_FILE, 'w') as f:
         json.dump({"last_event_name": name, "last_timestamp": timestamp}, f)
 
-def run_daemon():
+def run_daemon_loop():
     print("==================================================")
-    print("   SEABeacon Autonomous Daemon (Hourly Cron)      ")
+    print("   SEABeacon 24/7 Autonomous Daemon Active        ")
     print("==================================================\n")
     
-    print("--> [Daemon] 1. Checking previous execution state...")
-    state = load_last_state()
-    last_time = state.get("last_timestamp")
-    print(f"       Last Processed Update: {last_time if last_time else 'None (First Run)'}")
+    # Infinite loop to keep the process running 24/7
+    while True:
+        current_time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        print(f"\n[🕒 {current_time_str}] Wake up cycle initiated. Pinging GDACS...")
+        
+        # 1. Fetch LIVE data from GDACS
+        raw_data = fetch_active_typhoon_data(live_mode=True)
 
-    print("\n--> [Daemon] 2. Pinging API for live meteorological data...")
-    # NOTE: For this test, we use the Historical Replay to guarantee data.
-    # In full production, you simply change this to: fetch_active_typhoon_data(live_mode=True)
-    raw_data = fetch_active_typhoon_data(live_mode=True, replay_event_id=None) #production live mode
-    #raw_data = fetch_active_typhoon_data(live_mode=False, replay_event_id="1001082") #historical replay mode (for testing AI / deduplication)
+        # Handle API fallbacks or missing data
+        if not raw_data:
+            print("--> [Daemon] No active storms detected. Sleeping for 1 hour.")
+            time.sleep(3600)
+            continue
 
-    if not raw_data:
-        print("\n--> [Daemon] No active storms detected globally. Safely shutting down.")
-        sys.exit(0)
+        storm_name = raw_data["storm_name"]
+        latest_update_time = raw_data["updates"][-1]["timestamp"]
 
-    # Extract current event details
-    storm_name = raw_data["storm_name"]
-    latest_update_time = raw_data["updates"][-1]["timestamp"]
+        # 2. Check State to prevent duplicate logging
+        state = load_last_state()
+        last_time = state.get("last_timestamp")
 
-    print(f"\n--> [Daemon] 3. State Verification...")
-    print(f"       Current Target: {storm_name}")
-    print(f"       Latest Update:  {latest_update_time}")
+        if latest_update_time == last_time:
+            print(f"✅ [Daemon] No new movement detected for {storm_name}. Sleeping for 1 hour.")
+            time.sleep(3600)
+            continue
 
-    # Deduplication Logic
-    if latest_update_time == last_time:
-        print("\n✅ [Daemon] Data is identical to the last hourly run. No new trajectory needed.")
-        print("--> Safely shutting down to flush memory.")
-        sys.exit(0)
-    
-    print("\n⚠️ [Daemon] NEW METEOROLOGICAL DATA DETECTED.")
-    print("--> Updating state tracker...")
-    save_state(storm_name, latest_update_time)
-
-    print("--> 4. Launching isolated inference engine (predict.py)...")
-    # We use subprocess to run predict.py in a completely separate memory space.
-    # When predict.py finishes, its memory is completely wiped by the OS, preventing leaks.
-    predict_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src', 'model', 'predict.py'))
-    
-    try:
-        # Run the XGBoost script and stream its output directly to this console
-        subprocess.run([sys.executable, predict_script], check=True)
-        print("\n✅ [Daemon] Hourly cycle complete. Shutting down successfully.")
-    except subprocess.CalledProcessError as e:
-        print(f"\n❌ [Daemon] CRITICAL ERROR: Inference engine crashed. (Exit code: {e.returncode})")
-        sys.exit(1)
+        print(f"\n⚠️ [Daemon] NEW STORM UPDATE: {storm_name}")
+        print(f"       Latest Coordinates Timestamp: {latest_update_time}")
+        
+        # 3. Setup Coordinate Logging (Supabase Integration)
+        # Create a unique ID for this specific live detection so Supabase tracks it cleanly
+        run_id = f"live-production-{uuid.uuid4().hex[:8]}"
+        raw_data["simulation_run_id"] = run_id
+        
+        # Intercept mechanism: write the live data to the state file
+        # so predict.py uses the exact payload the daemon just verified
+        with open(LIVE_PAYLOAD_PATH, 'w') as f:
+            json.dump(raw_data, f)
+            
+        print(f"--> [Daemon] Generated Live Run ID: {run_id}")
+        print("--> [Daemon] Launching AI Inference Engine...")
+        
+        predict_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'src', 'model', 'predict.py'))
+        
+        try:
+            # Launch the isolated prediction environment
+            subprocess.run([sys.executable, predict_script], check=True)
+            
+            # Only save state if prediction and database logging succeeded
+            save_state(storm_name, latest_update_time)
+            print(f"✅ [Daemon] Cycle complete. Live coordinates securely logged to Supabase.")
+            
+        except subprocess.CalledProcessError as e:
+            print(f"\n❌ [Daemon] CRITICAL ERROR: Inference engine crashed. (Exit code: {e.returncode})")
+        
+        # Cleanup the interception payload
+        if os.path.exists(LIVE_PAYLOAD_PATH):
+            os.remove(LIVE_PAYLOAD_PATH)
+            
+        print("--> [Daemon] Entering standby mode for 1 hour...")
+        time.sleep(3600)
 
 if __name__ == "__main__":
-    run_daemon()
+    run_daemon_loop()

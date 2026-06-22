@@ -696,98 +696,100 @@ function ProvinceRankings({ ranked, topProvince }) {
         </div>
       </div>
 
-      {ranked.map((prov, idx) => {
-        const isTop = idx === 0 && !prov.reviewed;
-        const tier = prov.tier;
-        const tColor = tier ? tierColor(tier) : C.textDim;
-        const aiTypes = [...new Set(prov.reports.map(r=>r.aiType))];
-        const hasPattern = prov.uniqueTypes >= 2;
+      <div style={{ maxHeight: 8 * 52, overflowY: "auto" }}>
+        {ranked.map((prov, idx) => {
+          const isTop = idx === 0 && !prov.reviewed;
+          const tier = prov.tier;
+          const tColor = tier ? tierColor(tier) : C.textDim;
+          const aiTypes = [...new Set(prov.reports.map(r=>r.aiType))];
+          const hasPattern = prov.uniqueTypes >= 2;
 
-        return (
-          <div key={`${prov.country}::${prov.province}`}
-            style={{ padding:"14px 18px", borderBottom:`0.5px solid ${C.border}`,
-              background: isTop && tier ? tierBg(tier) : "transparent",
-              borderLeft: isTop ? `4px solid ${tColor}` : `4px solid transparent`,
-              opacity: prov.reviewed ? 0.4 : 1,
-              filter: prov.reviewed ? "grayscale(0.7)" : "none",
-              transition: "opacity 0.3s, filter 0.3s",
-              position:"relative" }}>
+          return (
+            <div key={`${prov.country}::${prov.province}`}
+              style={{ padding:"14px 18px", borderBottom:`0.5px solid ${C.border}`,
+                background: isTop && tier ? tierBg(tier) : "transparent",
+                borderLeft: isTop ? `4px solid ${tColor}` : `4px solid transparent`,
+                opacity: prov.reviewed ? 0.4 : 1,
+                filter: prov.reviewed ? "grayscale(0.7)" : "none",
+                transition: "opacity 0.3s, filter 0.3s",
+                position:"relative" }}>
 
-            {isTop && tier && (
-              <div style={{ position:"absolute", top:10, right:14 }}>
-                <Tag label="▲ TOP TARGET" color={tColor}/>
-              </div>
-            )}
+              {isTop && tier && (
+                <div style={{ position:"absolute", top:10, right:14 }}>
+                  <Tag label="▲ TOP TARGET" color={tColor}/>
+                </div>
+              )}
 
-            <div style={{ display:"flex", alignItems:"flex-start", gap:14 }}>
-              {/* Rank */}
-              <div style={{ fontSize:20, fontWeight:800, fontFamily:"monospace",
-                color: isTop ? tColor : C.textDim, minWidth:28, lineHeight:1, paddingTop:2 }}>
-                #{idx+1}
-              </div>
-
-              {/* Main info */}
-              <div style={{ flex:1 }}>
-                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
-                  <span style={{ fontSize:14, fontWeight:800, color:C.text }}>{prov.province}</span>
-                  <span style={{ fontSize:10, color:C.textDim }}>{prov.country}</span>
-                  {tier && <Tag label={tier.toUpperCase()} color={tColor}/>}
-                  {hasPattern && <Tag label={`${prov.uniqueTypes} AI TYPES`} color={C.teal}/>}
-                  {prov.reviewed && <Tag label="REVIEWED" color={C.textDim}/>}
+              <div style={{ display:"flex", alignItems:"flex-start", gap:14 }}>
+                {/* Rank */}
+                <div style={{ fontSize:20, fontWeight:800, fontFamily:"monospace",
+                  color: isTop ? tColor : C.textDim, minWidth:28, lineHeight:1, paddingTop:2 }}>
+                  #{idx+1}
                 </div>
 
-                {/* Confidence bar */}
-                <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                  <div style={{ flex:1, height:8, background:"rgba(0,0,0,0.06)", borderRadius:4, overflow:"hidden" }}>
-                    <div style={{ height:"100%", width:`${Math.round(prov.fusion*100)}%`,
-                      background: isTop ? tColor : C.textDim,
-                      borderRadius:4, transition:"width 0.5s cubic-bezier(0.4,0,0.2,1)" }}/>
+                {/* Main info */}
+                <div style={{ flex:1 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+                    <span style={{ fontSize:14, fontWeight:800, color:C.text }}>{prov.province}</span>
+                    <span style={{ fontSize:10, color:C.textDim }}>{prov.country}</span>
+                    {tier && <Tag label={tier.toUpperCase()} color={tColor}/>}
+                    {hasPattern && <Tag label={`${prov.uniqueTypes} AI TYPES`} color={C.teal}/>}
+                    {prov.reviewed && <Tag label="REVIEWED" color={C.textDim}/>}
                   </div>
-                  <span style={{ fontSize:16, fontWeight:800, fontFamily:"monospace",
-                    color: isTop ? tColor : C.text, minWidth:36 }}>{fmt2(prov.fusion)}</span>
-                </div>
 
-                {/* Stats row */}
-                <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
-                  <div style={{ fontSize:10, color:C.textDim }}>
-                    Reports: <span style={{ color:C.textMid, fontWeight:600 }}>{prov.reportCount}</span>
+                  {/* Confidence bar */}
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
+                    <div style={{ flex:1, height:8, background:"rgba(0,0,0,0.06)", borderRadius:4, overflow:"hidden" }}>
+                      <div style={{ height:"100%", width:`${Math.round(prov.fusion*100)}%`,
+                        background: isTop ? tColor : C.textDim,
+                        borderRadius:4, transition:"width 0.5s cubic-bezier(0.4,0,0.2,1)" }}/>
+                    </div>
+                    <span style={{ fontSize:16, fontWeight:800, fontFamily:"monospace",
+                      color: isTop ? tColor : C.text, minWidth:36 }}>{fmt2(prov.fusion)}</span>
                   </div>
-                  <div style={{ fontSize:10, color:C.textDim }}>
-                    Phys avg: <span style={{ color:C.blue, fontWeight:600 }}>{prov.physAvg > 0 ? fmt2(prov.physAvg) : "—"}</span>
-                  </div>
-                  <div style={{ fontSize:10, color:C.textDim }}>
-                    Social avg: <span style={{ color:C.purple, fontWeight:600 }}>{prov.socAvg > 0 ? fmt2(prov.socAvg) : "—"}</span>
-                  </div>
-                  {prov.isOverride && <Tag label="OVERRIDE" color={C.red}/>}
-                </div>
 
-                {/* AI type chips */}
-                <div style={{ display:"flex", gap:5, marginTop:8, flexWrap:"wrap" }}>
-                  {["flood","typhoon","social"].map(type => {
-                    const active = aiTypes.includes(type);
-                    const m = AI_META[type];
-                    return (
-                      <span key={type} style={{ fontSize:10, padding:"2px 8px", borderRadius:20,
-                        background: active ? `${m.color}18` : C.surfaceHi,
-                        color: active ? m.color : C.textDim,
-                        border:`0.5px solid ${active ? m.color+"44" : C.border}`,
-                        fontWeight: active ? 700 : 400 }}>
-                        {m.icon} {type}
+                  {/* Stats row */}
+                  <div style={{ display:"flex", gap:16, flexWrap:"wrap" }}>
+                    <div style={{ fontSize:10, color:C.textDim }}>
+                      Reports: <span style={{ color:C.textMid, fontWeight:600 }}>{prov.reportCount}</span>
+                    </div>
+                    <div style={{ fontSize:10, color:C.textDim }}>
+                      Phys avg: <span style={{ color:C.blue, fontWeight:600 }}>{prov.physAvg > 0 ? fmt2(prov.physAvg) : "—"}</span>
+                    </div>
+                    <div style={{ fontSize:10, color:C.textDim }}>
+                      Social avg: <span style={{ color:C.purple, fontWeight:600 }}>{prov.socAvg > 0 ? fmt2(prov.socAvg) : "—"}</span>
+                    </div>
+                    {prov.isOverride && <Tag label="OVERRIDE" color={C.red}/>}
+                  </div>
+
+                  {/* AI type chips */}
+                  <div style={{ display:"flex", gap:5, marginTop:8, flexWrap:"wrap" }}>
+                    {["flood","typhoon","social"].map(type => {
+                      const active = aiTypes.includes(type);
+                      const m = AI_META[type];
+                      return (
+                        <span key={type} style={{ fontSize:10, padding:"2px 8px", borderRadius:20,
+                          background: active ? `${m.color}18` : C.surfaceHi,
+                          color: active ? m.color : C.textDim,
+                          border:`0.5px solid ${active ? m.color+"44" : C.border}`,
+                          fontWeight: active ? 700 : 400 }}>
+                          {m.icon} {type}
+                        </span>
+                      );
+                    })}
+                    {hasPattern && (
+                      <span style={{ fontSize:10, padding:"2px 8px", borderRadius:20,
+                        background:`${C.teal}18`, color:C.teal, border:`0.5px solid ${C.teal}44`, fontWeight:700 }}>
+                        ✦ cross-AI pattern
                       </span>
-                    );
-                  })}
-                  {hasPattern && (
-                    <span style={{ fontSize:10, padding:"2px 8px", borderRadius:20,
-                      background:`${C.teal}18`, color:C.teal, border:`0.5px solid ${C.teal}44`, fontWeight:700 }}>
-                      ✦ cross-AI pattern
-                    </span>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1126,7 +1128,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
   const AI1_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpybnJ2aGRyenZlc2Z0eXlraWFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MDAwMTUsImV4cCI6MjA5NzM3NjAxNX0.7Nig4nl37BTnpBGfUS844I_cc3b5YHnUIerwdbalBRk";
   const AI2_SUPABASE_URL = "https://axigjjehzqghflrvewaj.supabase.co";
   const AI2_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF4aWdqamVoenFnaGZscnZld2FqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4MjA0MDYsImV4cCI6MjA5NzM5NjQwNn0.uQBx8gGXKLmCI-jUnDArpAt6RFMiOSYYFzol4yCclVE";
-  const AI3_SUPABASE_URL = "https://abowclxaasswcvhuxjzx.supabase.co";
+  const AI3_SUPABASE_URL = "https://nwlzgvunbpshfbvqnxjs.supabase.co";
   const AI3_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53bHpndnVuYnBzaGZidnFueGpzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MTg3NDgsImV4cCI6MjA5NzE5NDc0OH0.-a4G8zxZ2ruWdHLRvk4fSCYpGw597ucxzeEvZUchtrQ";
   const CENTRAL_SUPABASE_URL = "https://kiyiqwcbbjjkbxjpsovg.supabase.co";
   const CENTRAL_SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtpeWlxd2NiYmpqa2J4anBzb3ZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzODc1NzUsImV4cCI6MjA5NTk2MzU3NX0.OkfwMNSNTC8OGCHzDmomtwOX9N3j-CRkUOdyttq_-48";
@@ -1442,6 +1444,185 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
       clearInterval(intervalId);
     };
   }, [handleSubmit, nextId, tsDate]);
+
+  // NLP/social media processor: polls Supabase for new BERT NLP predictions and converts to AI reports
+  useEffect(() => {
+    let isMounted = true;
+    let lastProcessedEventId = null; // Tracks the last processed storm_metrics event_id
+
+    const fetchNLPredictions = async () => {
+      try {
+        // Build query - get new predictions since last processed
+        let query = `${AI3_SUPABASE_URL}/rest/v1/storm_metrics?select=*&transmitted=eq.false&order=event_id.asc`;
+        if (lastProcessedEventId !== null) {
+          query = `${AI3_SUPABASE_URL}/rest/v1/storm_metrics?select=*&transmitted=eq.false&event_id=gt.${lastProcessedEventId}&order=event_id.asc`;
+        }
+        console.log("AI3 NLP predictions query:", query);
+
+        const response = await fetch(query, {
+          headers: {
+            apikey: AI3_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${AI3_SUPABASE_ANON_KEY}`,
+          },
+        });
+
+        if (!response.ok) {
+          console.error("Failed to fetch NLP predictions:", response.status, await response.text());
+          return;
+        }
+
+        const predictions = await response.json();
+        console.log(`Received ${predictions.length} NLP predictions from AI3 Supabase (since event_id ${lastProcessedEventId})`);
+        if (!predictions || predictions.length === 0) {
+          return;
+        }
+
+        // Track the maximum event_id we've seen in this batch
+        let maxEventIdInBatch = lastProcessedEventId;
+
+        for (const pred of predictions) {
+          const {
+            event_id,
+            storm_name,
+            article_count,
+            avg_score,
+            max_score,
+            alert_level,
+            provinces,
+            updated_at
+          } = pred;
+
+          // Basic validation - check for required fields
+          const isValid = event_id && storm_name && provinces && Array.isArray(provinces) && provinces.length > 0 &&
+                         (avg_score !== null && !isNaN(avg_score) || max_score !== null && !isNaN(max_score)) &&
+                         article_count !== null && !isNaN(article_count) &&
+                         alert_level;
+
+          if (!isValid) {
+            console.warn("Invalid NLP prediction row - missing required field:", {
+              event_id, storm_name, article_count, avg_score, max_score, alert_level, provinces
+            });
+            continue;
+          }
+
+          // Determine country by checking which country's province list has the most matches with the provinces array
+          let countryScores = { PH: 0, VT: 0, TH: 0 };
+          provinces.forEach(prov => {
+            if (PROVINCES.PH.includes(prov)) countryScores.PH++;
+            if (PROVINCES.VT.includes(prov)) countryScores.VT++;
+            if (PROVINCES.TH.includes(prov)) countryScores.TH++;
+          });
+
+          // Find country with highest score, default to PH if tie or no matches
+          let country = "PH";
+          let maxScore = 0;
+          Object.entries(countryScores).forEach(([c, score]) => {
+            if (score > maxScore) {
+              maxScore = score;
+              country = c;
+            }
+          });
+
+          // Use avg_score if available, otherwise max_score, normalized to 0.01-0.99 range
+          let rawScore = avg_score !== null && !isNaN(avg_score) ? avg_score : max_score;
+          let normScore = rawScore;
+          normScore = Math.max(0.01, Math.min(0.99, normScore)); // Clamp to 0.01-0.99
+
+          // Map alert_level to domLabel (watch/advisory/warning)
+          const alertLevelLower = alert_level.toLowerCase();
+          let domLabel = "watch"; // default
+          if (alertLevelLower.includes("warning") || alertLevelLower.includes("warn")) {
+            domLabel = "warning";
+          } else if (alertLevelLower.includes("advisory") || alertLevelLower.includes("adv")) {
+            domLabel = "advisory";
+          } else if (alertLevelLower.includes("watch")) {
+            domLabel = "watch";
+          }
+
+          // Use article_count for postCount, ensure it's a positive integer
+          const postCount = Math.max(0, Math.floor(article_count));
+
+          try {
+            // Fan out: one independent row per province in the provinces array
+            provinces.forEach(prov => {
+              handleSubmit({
+                id: nextId(),
+                aiType: "social",
+                country: country,
+                province: prov,
+                score: normScore,
+                submittedAt: new Date(updated_at).getTime(),
+                displayTime: tsDate(),
+                highLang: true, // Assume high language resource for NLP predictions
+                ctx: {
+                  stormName: storm_name,
+                  postCount: postCount,
+                  domLabel: domLabel,
+                  highLang: true
+                },
+              });
+            });
+
+            console.log(`Successfully processed NLP prediction for event_id: ${event_id}, storm: ${storm_name}, provinces: ${provinces.length}`);
+
+            // Update transmitted flag for AI3 prediction
+            try {
+              const updateResponse = await fetch(
+                `${AI3_SUPABASE_URL}/rest/v1/storm_metrics?event_id=eq.${event_id}`,
+                {
+                  method: 'PATCH',
+                  headers: {
+                    apikey: AI3_SUPABASE_ANON_KEY,
+                    Authorization: `Bearer ${AI3_SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({ transmitted: true }),
+                }
+              );
+              if (!updateResponse.ok) {
+                const errorText = await updateResponse.text();
+                console.error(`Failed to update NLP prediction ${event_id} as transmitted:`, updateResponse.status, errorText);
+              } else {
+                console.log(`NLP prediction ${event_id} marked as transmitted`);
+              }
+            } catch (updateError) {
+              console.error("Error updating NLP prediction as transmitted:", updateError);
+            }
+
+          } catch (err) {
+            console.error("Error submitting NLP prediction report for event_id:", event_id, err);
+            continue;
+          }
+
+          // Track the maximum event_id we've seen in this batch (string comparison)
+          if (event_id > maxEventIdInBatch) {
+            maxEventIdInBatch = event_id;
+          }
+        }
+
+        // Update lastProcessedEventId to the highest event_id we saw in this batch
+        // This ensures we don't reprocess the same batch even if some rows failed
+        if (maxEventIdInBatch !== null && maxEventIdInBatch > lastProcessedEventId) {
+          lastProcessedEventId = maxEventIdInBatch;
+          console.log(`Updated last processed NLP prediction event_id to: ${lastProcessedEventId}`);
+        }
+      } catch (error) {
+        console.error("Error in NLP prediction processor:", error);
+      }
+    };
+
+    // Run the fetch every 30 seconds
+    const intervalId = setInterval(fetchNLPredictions, 30000);
+
+    // Also run once on mount
+    fetchNLPredictions();
+
+    // Cleanup on unmount
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [handleSubmit, nextId, tsDate, AI3_SUPABASE_URL, AI3_SUPABASE_ANON_KEY]);
 
   // Flood prediction processor: polls Supabase for new AI-1 flood predictions and converts to AI reports
   useEffect(() => {

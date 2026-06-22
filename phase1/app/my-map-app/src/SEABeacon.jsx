@@ -648,13 +648,7 @@ function ReportsTable({ reports, now, onClear, reviewedKeys }) {
             <>
               <ColHeaders/>
               <div style={{ maxHeight: 20 * 52, overflowY:"auto" }}>
-                {activeRows.slice(0, 20).map(r => <ReportRow key={r.id} r={r} used={false}/>)}
-                {activeRows.length > 20 && (
-                  <div style={{ padding:"8px 18px", fontSize:10, color:C.textDim, textAlign:"center",
-                    borderTop:`0.5px solid ${C.border}`, background:C.surfaceHi }}>
-                    Showing 20 of {activeRows.length} — older rows hidden. Clear to reset.
-                  </div>
-                )}
+                {activeRows.map(r => <ReportRow key={r.id} r={r} used={false}/>)}
               </div>
             </>
           ) : (

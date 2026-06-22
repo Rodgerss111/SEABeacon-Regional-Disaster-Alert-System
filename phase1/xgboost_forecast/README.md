@@ -1,133 +1,215 @@
-# SEABeacon: Phase 1 (Spatial Forecasting Core) 
+# SEABeacon — Phase 1: Spatial Forecasting Core
 
-This directory contains the spatial physics and forecasting engine for the SEABeacon Regional Disaster Alert System. It utilizes an autoregressive XGBoost machine learning pipeline to predict the 72-hour trajectory and intensity of transboundary tropical cyclones in the ASEAN region.
+> **Autoregressive XGBoost pipeline for 72-hour tropical cyclone trajectory and intensity forecasting across the ASEAN region.**
+
+---
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [System Architecture](#system-architecture)
+3. [Model Performance](#model-performance)
+4. [Directory Structure](#directory-structure)
+5. [Cloud & Database Infrastructure](#cloud--database-infrastructure)
+6. [How to Run](#how-to-run)
+   - [Mode A: Local Development](#mode-a-local-development)
+   - [Mode B: Cloud Production (24/7)](#mode-b-cloud-production-247)
+7. [Reattaching to a Live Session](#reattaching-to-a-live-session)
+
+---
+
+## Overview
+
+This directory contains the **spatial physics and forecasting engine** for the SEABeacon Regional Disaster Alert System. The pipeline operates as a **24/7 autonomous daemon** designed for cloud deployment and tracks live transboundary tropical cyclones in real time.
+
+**Key capabilities:**
+- Live ingestion from NASA EONET and GDACS APIs
+- 17-feature meteorological tensor inference via XGBoost
+- Autoregressive 72-hour forecast loop with dynamic uncertainty radii
+- Persistent cloud logging via Supabase (PostGIS)
+
+---
 
 ## System Architecture
 
-The forecasting core operates as a 24/7 autonomous daemon designed for cloud deployment:
-1. **Ingestion:** Pings the NASA EONET API and GDACS to acquire live, synoptic coordinate drops.
-2. **Vectorization:** Converts the raw payload into a 17-feature meteorological tensor (including latitude, longitude, wind speed, pressure, and seasonal sinusoids).
-3. **Inference:** Feeds the vector into a pre-trained 3D XGBoost engine.
-4. **Autoregression:** Uses a kinematic feedback loop to generate 6, 12, 24, 48, and 72-hour forecast steps, calculating a dynamic Landfall Risk Scope (uncertainty radius) for each step.
-5. **Persistence:** Sends the spatial data via a local FastAPI server to a cloud-hosted Supabase PostgreSQL/PostGIS database.
+The forecasting core follows a five-stage pipeline:
 
-## Model Performance Metrics
+```
+[1] INGEST          [2] VECTORIZE         [3] INFER
+NASA EONET  ──►  17-feature tensor  ──►  XGBoost engine
+GDACS              (lat, lon, wind,         (seabeacon_xgb_v1.pkl)
+                    pressure, seasonal
+                    sinusoids, ...)
+                                                  │
+                                                  ▼
+[5] PERSIST                           [4] AUTOREGRESS
+Supabase     ◄──  FastAPI server  ◄──  6 / 12 / 24 / 48 / 72 hr steps
+(PostGIS)         (api/main.py)         + dynamic Landfall Risk Scope
+```
 
-The current model artifact (`seabeacon_xgb_v1.pkl`) was trained on NOAA IBTrACS historical cyclone data (1980–present), extracting 30,965 valid multi-dimensional matrices. 
+| Stage | Description |
+|---|---|
+| **Ingestion** | Pings NASA EONET and GDACS APIs for live synoptic coordinate drops |
+| **Vectorization** | Converts the raw payload into a 17-feature meteorological tensor |
+| **Inference** | Feeds the vector into the pre-trained 3D XGBoost model |
+| **Autoregression** | Kinematic feedback loop generating forecast steps at 6, 12, 24, 48, and 72 hours; outputs a dynamic **Landfall Risk Scope** (uncertainty radius) per step |
+| **Persistence** | Routes spatial data through a local FastAPI server to a cloud-hosted Supabase PostgreSQL/PostGIS database |
 
-* **Intensity Error (Mean Absolute):** 3.39 knots
-* **Spatial Cross-Track Error (Median):** 38.40 km per 6-hour prediction step.
+---
 
-*Note: Because spatial error mathematically compounds during the 72-hour autoregressive loop, the system outputs a dynamic `Landfall Risk Scope` to safely encompass this statistical deviation.*
+## Model Performance
 
-## 📂 Directory Structure
+The current model artifact (`seabeacon_xgb_v1.pkl`) was trained on **NOAA IBTrACS** historical cyclone data (1980–present), extracting **30,965 valid multi-dimensional matrices**.
 
-```text
+| Metric | Value |
+|---|---|
+| Intensity Error (Mean Absolute) | **3.39 knots** |
+| Spatial Cross-Track Error (Median) | **38.40 km** per 6-hour prediction step |
+
+> ⚠️ **Note on compounding error:** Because spatial error accumulates across the 72-hour autoregressive loop, the system outputs a **dynamic Landfall Risk Scope** at each step to safely encompass statistical deviation.
+
+---
+
+## Directory Structure
+
+```
 xgboost_forecast/
-├── data/                       # 1. DATA WAREHOUSE (Ignored by Git)
-│   ├── raw/                    # Raw IBTrACS CSVs or newly downloaded live data
-│   └── shapefiles/             # GADM Philippines, Vietnam, Thailand polygons (.shp, .dbf)
 │
-├── notebooks/                  # 3. EXPERIMENTATION & SANDBOX
-│   ├── 01_exploration.ipynb    # Sandbox for testing
-│   └── 02_spatial_migration.ipynb 
+├── data/                            # Data warehouse (Git-ignored)
+│   ├── raw/                         # Raw IBTrACS CSVs or live downloads
+│   └── shapefiles/                  # GADM shapefiles: Philippines, Vietnam, Thailand
 │
-├── src/                        # 4. CORE ENGINE (The Spatial Physics Pipeline)
-│   ├── __init__.py
+├── notebooks/                       # Experimentation & sandbox
+│   ├── 01_exploration.ipynb
+│   └── 02_spatial_migration.ipynb
+│
+├── src/                             # Core engine — Spatial Physics Pipeline
 │   ├── data_pipeline/
-│   │   ├── fetch_realtime.py   # Pings GDACS/JTWC API (Supports Live & Historical Replay)
-│   │   ├── preprocess.py       # Reusable functions for physics & sliding windows
-│   │   └── noru_playback.json  # Trajectory JSON for time-lapse simulation
+│   │   ├── fetch_realtime.py        # Pings GDACS/JTWC API (live & historical replay)
+│   │   ├── preprocess.py            # Physics functions & sliding window utilities
+│   │   └── noru_playback.json       # Trajectory JSON for time-lapse simulation
 │   ├── model/
-│   │   ├── train.py            # Script to train the XGBoost model and save it
-│   │   └── predict.py          # 72-hour Autoregressive Trajectory Loop
-│   └── nlp/                    # PHASE 2: SOCIAL MEDIA ENGINE
-│       └── simulate_stream.py  # Geofenced Crisis Stream Generator
+│   │   ├── train.py                 # XGBoost training script
+│   │   └── predict.py               # 72-hour autoregressive trajectory loop
+│   └── nlp/                         # Phase 2: Social Media Engine
+│       └── simulate_stream.py       # Geofenced crisis stream generator
 │
-├── automation/                 # 5. 24/7 DAEMON & DEMO LAYER
-│   ├── daemon.py               # Hourly scheduler handling deduplication
-│   └── demo_runner.py          # Accelerated 5-second 72-hour simulation loop
+├── automation/                      # 24/7 daemon & demo layer
+│   ├── daemon.py                    # Hourly scheduler with deduplication
+│   └── demo_runner.py               # Accelerated 72-hour simulation (5-second steps)
 │
-├── api/                        # 6. BACKEND MICROSERVICE
-│   └── main.py                 # FastAPI PostGIS API & Supabase Cloud Logger
+├── api/
+│   └── main.py                      # FastAPI server: PostGIS routing + Supabase logging
 │
-├── integration/                # 7. ENSEMBLE PARTNER SCRIPTS (NEW)
-│   └── lstm_fetch_example.py   # Python REST fetcher for LSTM time-series ingestion
+├── integration/                     # Ensemble partner scripts
+│   └── lstm_fetch_example.py        # REST fetcher for LSTM time-series ingestion
 │
-├── models/                     # 8. SAVED ARTIFACTS
-│   └── seabeacon_xgb_v1.pkl    
+├── models/
+│   └── seabeacon_xgb_v1.pkl         # Trained model artifact
 │
-├── .env                        
-├── .gitignore                  
-├── requirements.txt            
-└── README.md         
+├── .env                             # Local credentials (Git-ignored)
+├── .gitignore
+├── requirements.txt
+└── README.md
+```
 
-## ☁️ Cloud & Database Infrastructure
+---
 
-This pipeline is engineered to operate headlessly in the cloud, utilizing a decoupled architecture between compute (Google Cloud) and storage (Supabase).
+## Cloud & Database Infrastructure
 
-### 1. Supabase (PostgreSQL + PostGIS)
-We utilize Supabase as our remote spatial database. The FastAPI server (`api/main.py`) actively listens for predictions from the AI and executes POST requests to log the 72-hour `Landfall Risk Scope` coordinates into the cloud.
+The pipeline uses a **decoupled architecture**: compute runs on Google Cloud, storage lives on Supabase.
 
-**Setup Instructions:**
-1. Create a project in your Supabase dashboard.
-2. Ensure you have a table named `seabeacon_forecasts` configured to accept simulation run IDs, latitudes, longitudes, wind speeds, and risk radii.
-3. Navigate to **Project Settings > Database > Connection string > URI**.
-4. Create a hidden `.env` file in the root of the `xgboost_forecast` directory. Git will ignore this file to protect your credentials.
-5. Paste your connection string inside the `.env` file:
-   ```env
-   DATABASE_URL="postgresql://postgres.[your-project]:[your-password]@[aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres](https://aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres)"
+### Supabase (PostgreSQL + PostGIS)
 
-🛠️ How to Use This Directory
-Depending on your objective, there are two distinct ways to execute the code in this folder: Local Testing Mode and Cloud Production Mode.
+Supabase stores all 72-hour `Landfall Risk Scope` coordinates logged by the FastAPI server.
 
-Mode A: Local Testing & Development
-Use this mode if you are actively modifying the XGBoost model, tweaking the 17-feature vector logic, or running historical backtests on your local machine.
+**Setup:**
 
-Navigate to the directory: cd SEABeacon-Regional-Disaster-Alert-System/phase1/xgboost_forecast
+1. Create a project at [supabase.com](https://supabase.com).
+2. Create a table named `seabeacon_forecasts` with columns for: simulation run ID, latitude, longitude, wind speed, and risk radius.
+3. Go to **Project Settings → Database → Connection string → URI**.
+4. Create a `.env` file in the root of `xgboost_forecast/` and paste your connection string:
 
-Activate your environment:
+```env
+DATABASE_URL="postgresql://postgres.[your-project]:[your-password]@aws-0-ap-southeast-1.pooler.supabase.com:6543/postgres"
+```
 
-Windows: .venv\Scripts\activate
+> ✅ `.env` is Git-ignored — your credentials are safe.
 
-Mac/Linux: source .venv/bin/activate
+---
 
-Run a manual test: Execute the demo script to force a prediction run without waiting for the 1-hour daemon sleep cycle.
+## How to Run
 
-Bash
+### Mode A: Local Development
+
+Use this mode when modifying the XGBoost model, tweaking the 17-feature vector logic, or running historical backtests.
+
+```bash
+# 1. Navigate to the directory
+cd SEABeacon-Regional-Disaster-Alert-System/phase1/xgboost_forecast
+
+# 2. Activate the virtual environment
+#    Windows:
+.venv\Scripts\activate
+#    Mac/Linux:
+source .venv/bin/activate
+
+# 3. Run a manual prediction (bypasses the 1-hour daemon sleep cycle)
 python src/demo_runner.py
-Mode B: Cloud Production (24/7 Deployment)
-Use this mode when SSH'd into your Google Cloud server to start the autonomous pipeline. We must launch both the API and the Ingestion Daemon simultaneously using tmux.
+```
 
-Step 1: Prepare the Cloud Environment
+---
 
-Bash
+### Mode B: Cloud Production (24/7)
+
+Use this mode when SSH'd into your Google Cloud server. Both the **API server** and **ingestion daemon** must run simultaneously — use `tmux` to keep both alive after you disconnect.
+
+#### Step 1 — Prepare the environment
+
+```bash
 sudo apt update && sudo apt install python3-venv tmux -y
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-Step 2: Initialize the Master Session
-Create a new, persistent background session named seabeacon:
+```
 
-Bash
+#### Step 2 — Create a persistent tmux session
+
+```bash
 tmux new -s seabeacon
-Step 3: Launch the Storage API (Window 1)
-This starts the localized server that routes AI predictions to Supabase.
+```
 
-Bash
+#### Step 3 — Launch the Storage API (Window 1)
+
+```bash
 source .venv/bin/activate
 uvicorn api.main:app --host 0.0.0.0 --port 8000
-Step 4: Launch the Autonomous Daemon (Window 2)
-Open a second terminal tab inside the tmux session by pressing Ctrl + B, releasing both keys, and tapping C. Then, start the ingestion loop:
+```
 
-Bash
+#### Step 4 — Open a second window and launch the Daemon
+
+Press `Ctrl+B` then `C` to open a new tmux window, then:
+
+```bash
 source .venv/bin/activate
 python automation/daemon.py
-Step 5: Safely Detach
-To leave the server running indefinitely, you must detach from the session without terminating the scripts.
+```
 
-Press Ctrl + B, release both keys, and tap D.
+#### Step 5 — Detach safely
 
-Alternatively, simply close your SSH browser window. The daemon will continue tracking NASA EONET and logging spatial data to Supabase autonomously.
+Press `Ctrl+B` then `D` to detach from the session without stopping either process.
 
-Reattaching: If you ever need to check the live logs or halt the daemon, SSH back into the Google Cloud server and run: tmux attach -t seabeacon
+> 💡 You can also simply close your SSH window — both processes will continue running on the server, autonomously tracking NASA EONET and logging spatial data to Supabase.
+
+---
+
+## Reattaching to a Live Session
+
+To check logs or stop the daemon after a previous deployment:
+
+```bash
+# SSH back into the server, then:
+tmux attach -t seabeacon
+```
+
+You'll be dropped back into the running session with both windows active.

@@ -1,0 +1,8 @@
+basin_id,country,lat,lon,flood_cms,warn_cms,provinces,severe_cms
+PH_LUZON_NORTH,PH,18.0,121.8,4.84375,3.21875,"['Cagayan', 'Isabela', 'Nueva Vizcaya', 'Quirino', 'Aurora', 'Batanes', 'Apayao']",11.609375
+PH_LUZON_CENTRAL,PH,15.5,120.7,86.796875,63.6875,"['Pampanga', 'Bulacan', 'Nueva Ecija', 'Tarlac', 'Metro Manila', 'Laguna', 'Batangas', 'Quezon', 'Camarines Norte', 'Camarines Sur', 'Albay']",155.28125
+PH_VISAYAS,PH,11.2,124.8,15.953125,12.78125,"['Eastern Samar', 'Western Samar', 'Northern Samar', 'Leyte', 'Southern Leyte', 'Biliran', 'Cebu', 'Bohol', 'Iloilo', 'Capiz']",27.90625
+PH_MINDANAO,PH,8.0,125.5,5.59375,4.28125,"['Davao', 'Davao del Norte', 'Davao del Sur', 'Agusan del Norte', 'Agusan del Sur', 'Surigao del Norte', 'Surigao del Sur', 'Bukidnon', 'Cotabato', 'Zamboanga']",9.5234375
+VN_CENTRAL,VN,15.8,108.2,19.234375,10.4375,"['Quang Nam', 'Quang Ngai', 'Binh Dinh', 'Phu Yen', 'Khanh Hoa', 'Thua Thien Hue', 'Da Nang', 'Quang Tri', 'Quang Binh']",55.75
+VN_MEKONG,VN,11.0,106.0,36.4453125,29.0,"['An Giang', 'Dong Thap', 'Long An', 'Tien Giang', 'Ben Tre', 'Vinh Long', 'Can Tho', 'Hau Giang']",56.5390625
+TH_CHAOPHRAYA,TH,14.5,100.5,8.140625,5.4375,"['Nakhon Sawan', 'Chai Nat', 'Sing Buri', 'Ang Thong', 'Ayutthaya', 'Pathum Thani', 'Nonthaburi', 'Bangkok']",13.5703125

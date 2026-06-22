@@ -16,8 +16,8 @@ produces localized warnings in each country's language and distributes them thro
 WhatsApp, LINE, and Zalo simultaneously.
 </p>
 
+<br> DemoVideoLink: https://drive.google.com/file/d/1DtpzMymjGlgwyxb2Y0xDuuYns_Yf9h79/view?usp=sharing
 <br> Notion :https://www.notion.so/Hackathon-Dashboard-3430a20e601e80ce8df6e347dfe50f56 
-<br> Jira  :https://salvadorvincentcarl.atlassian.net/jira/software/projects/SCRUM/boards/1/backlog?selectedIssue=SCRUM-7
 
 <p align="center">
   <img width="980" height="752" alt="1024px-map_and_flag_of_asean_countries png" src="https://github.com/user-attachments/assets/c78bd87c-2725-4977-b086-6a3cf9fb4ae6" />

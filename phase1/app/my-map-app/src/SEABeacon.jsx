@@ -1150,11 +1150,15 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
   useEffect(() => {
     const fetchCentralReports = async () => {
       try {
+        const nowISO = new Date().toISOString();
+        let baseQuery = `${CENTRAL_SUPABASE_URL}/rest/v1/seabeacon_reports?select=*&order=submitted_at.desc&expires_at=gt.${nowISO}&debug=eq.false`;
         let allReports = [];
         let offset = 0;
         const limit = 1000; // safe batch size
+
         while (true) {
-          const response = await fetch(`${CENTRAL_SUPABASE_URL}/rest/v1/seabeacon_reports?select=*&order=submitted_at.desc&limit=${limit}&offset=${offset}`, {
+          const pagedQuery = `${baseQuery}&limit=${limit}&offset=${offset}`;
+          const response = await fetch(pagedQuery, {
             headers: {
               apikey: CENTRAL_SUPABASE_ANON_KEY,
               Authorization: `Bearer ${CENTRAL_SUPABASE_ANON_KEY}`,
@@ -1162,12 +1166,16 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
           });
 
           if (!response.ok) {
-            console.error('Failed to fetch central reports batch:', response.status, await response.text());
+            console.error(
+              'Failed to fetch central reports batch:',
+              response.status,
+              await response.text()
+            );
             break;
           }
 
           const data = await response.json();
-          if (data.length === 0) break;
+          if (data.length === 0) break; // no more rows
 
           allReports = allReports.concat(data);
           if (data.length < limit) break; // last batch
@@ -1206,6 +1214,7 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
 
     // Also persist to Central Supabase database
     try {
+      const expiresAt = new Date(report.submittedAt + 6 * 60 * 60 * 1000); // 6 hours TTL
       const response = await fetch(`${CENTRAL_SUPABASE_URL}/rest/v1/seabeacon_reports`, {
         method: 'POST',
         headers: {
@@ -1225,7 +1234,8 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
           high_lang: report.highLang,
           ctx: report.ctx,
           simulated: report.simulated || false,
-          debug: report.debug || false
+          debug: report.debug || false,
+          expires_at: expiresAt.toISOString()
         })
       });
 

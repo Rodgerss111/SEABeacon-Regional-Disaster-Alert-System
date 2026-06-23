@@ -18,6 +18,24 @@ function tierFill(tier) {
   return null
 }
 
+// ── Legend row swatch + label ────────────────────────────────────────────────
+function LegendRow({ color, label, shape = 'box' }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '2px 0' }}>
+      <span style={{
+        width: shape === 'dot' ? 10 : 12,
+        height: shape === 'dot' ? 10 : 12,
+        borderRadius: shape === 'dot' ? '50%' : 3,
+        background: color,
+        opacity: shape === 'dot' ? 0.6 : 1,
+        border: `1px solid ${color}`,
+        flexShrink: 0,
+      }} />
+      <span>{label}</span>
+    </div>
+  )
+}
+
 function norm(s) {
   return s?.toLowerCase()
     .normalize("NFD")
@@ -400,6 +418,38 @@ export default React.memo(function MapPanel({
         )}
 
       </svg>
+
+      {/* Legend — mode-aware overlay, top-right corner (over ocean) */}
+      <div style={{
+        position: 'absolute', right: 12, top: 12, zIndex: 10,
+        background: 'rgba(255,255,255,0.92)', border: `0.5px solid ${C.border}`,
+        borderRadius: 8, padding: '8px 11px', fontSize: 10.5, color: C.text,
+        lineHeight: 1.45, fontFamily: 'system-ui, sans-serif', maxWidth: 168,
+        boxShadow: '0 1px 5px rgba(15,31,53,0.10)', pointerEvents: 'none',
+      }}>
+        <div style={{
+          fontWeight: 700, fontSize: 9, letterSpacing: '0.06em',
+          color: C.textDim, textTransform: 'uppercase', marginBottom: 5,
+        }}>
+          {mode === 'impact' ? 'Impact confidence' : 'Alert tier'}
+        </div>
+
+        <LegendRow color="#C0282A" label="Warning (≥0.80)"      shape={mode === 'impact' ? 'dot' : 'box'} />
+        <LegendRow color="#E8A020" label="Advisory (0.65–0.79)" shape={mode === 'impact' ? 'dot' : 'box'} />
+        <LegendRow color="#B87000" label="Watch (0.50–0.64)"    shape={mode === 'impact' ? 'dot' : 'box'} />
+
+        <div style={{ height: 1, background: C.border, margin: '6px 0' }} />
+
+        <LegendRow color={mode === 'impact' ? '#a8c8a0' : '#8ab87a'} label="Monitored · PH·VN·TH" />
+        <LegendRow color={mode === 'impact' ? '#d0d3cc' : '#c2c7b6'} label="Context / non-ASEAN" />
+
+        {mode === 'impact'
+          ? <div style={{ marginTop: 6, color: C.textDim, fontSize: 9.5 }}>● dot size = confidence</div>
+          : <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 3, background: '#4a90d9', flexShrink: 0 }} />
+              <span>Selected</span>
+            </div>}
+      </div>
 
       {/* Tooltip — mounted once, updated imperatively via tooltipRef */}
       <ProvinceTooltip tooltipRef={tooltipRef} />

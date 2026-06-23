@@ -798,7 +798,27 @@ function ReportsTable({ reports, now, onClear, reviewedKeys }) {
 }
 
 // ══ PROVINCE RANKINGS ════════════════════════════════════════════════════════
+function PageBtn({ disabled, onClick, children }) {
+  return (
+    <button onClick={onClick} disabled={disabled}
+      style={{ fontSize:10, fontWeight:700, padding:"4px 10px", borderRadius:6,
+        border:`0.5px solid ${C.border}`,
+        background: disabled ? "transparent" : C.surface,
+        color: disabled ? C.textDim : C.text,
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.5 : 1 }}>
+      {children}
+    </button>
+  );
+}
+
+const RANKINGS_PER_PAGE = 10;
 function ProvinceRankings({ ranked, topProvince }) {
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(ranked.length / RANKINGS_PER_PAGE));
+  const safePage = Math.min(page, totalPages - 1); // clamp when the live list shrinks
+  const startIdx = safePage * RANKINGS_PER_PAGE;
+
   if (ranked.length === 0) return (
     <div style={{ textAlign:"center", padding:"28px", color:C.textDim, fontSize:12,
       background:C.surfaceHi, borderRadius:14, border:`0.5px solid ${C.border}`, marginBottom:8 }}>
@@ -815,7 +835,8 @@ function ProvinceRankings({ ranked, topProvince }) {
         </div>
       </div>
 
-      {ranked.map((prov, idx) => {
+      {ranked.slice(startIdx, startIdx + RANKINGS_PER_PAGE).map((prov, i) => {
+        const idx = startIdx + i; // preserve global rank across pages
         const isTop = idx === 0 && !prov.reviewed;
         const tier = prov.tier;
         const tColor = tier ? tierColor(tier) : C.textDim;
@@ -902,6 +923,22 @@ function ProvinceRankings({ ranked, topProvince }) {
           </div>
         );
       })}
+
+      {totalPages > 1 && (
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"10px 18px", borderTop:`0.5px solid ${C.border}`, background:C.surfaceHi }}>
+          <span style={{ fontSize:10, color:C.textDim }}>
+            Showing {startIdx + 1}–{Math.min(startIdx + RANKINGS_PER_PAGE, ranked.length)} of {ranked.length}
+          </span>
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <PageBtn disabled={safePage === 0} onClick={() => setPage(safePage - 1)}>‹ Prev</PageBtn>
+            <span style={{ fontSize:10, color:C.textMid, fontWeight:600, minWidth:62, textAlign:"center" }}>
+              Page {safePage + 1} / {totalPages}
+            </span>
+            <PageBtn disabled={safePage >= totalPages - 1} onClick={() => setPage(safePage + 1)}>Next ›</PageBtn>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1301,11 +1338,18 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
     let isMounted = true;
     let lastRunId = null; // Tracks the last processed simulation_run_id
 
+    // The most recent forecast cycle can legitimately be NO_IMPACT_DETECTED (the
+    // storm moved out of range), which would leave the map blank even though a
+    // slightly older cycle has live impacts. So we process the most recent run
+    // that actually has province impacts, bounded to a freshness window so we
+    // never resurrect a stale storm.
+    const FORECAST_FRESHNESS_MS = 6 * 60 * 60 * 1000; // 6h — matches report expiry
+
     const fetchForecasts = async () => {
       try {
-        // Fetch the most recent forecast row to get the latest simulation_run_id
-        const latestResponse = await fetch(
-          `${AI2_SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=simulation_run_id&order=created_at.desc&limit=1`,
+        // Pull recent rows (newest first) with just enough to pick the target run.
+        const recentResponse = await fetch(
+          `${AI2_SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=*&order=created_at.desc&limit=60`,
           {
             headers: {
               apikey: AI2_SUPABASE_ANON_KEY,
@@ -1314,43 +1358,42 @@ export default function SEABeacon({ selectedProvince, onRankedUpdate, hideImpact
           }
         );
 
-        if (!latestResponse.ok) {
-          console.error("Failed to fetch latest forecast:", latestResponse.status, latestResponse.statusText);
+        if (!recentResponse.ok) {
+          console.error("Failed to fetch forecasts:", recentResponse.status, recentResponse.statusText);
           return;
         }
 
-        const latestData = await latestResponse.json();
-        if (!latestData || latestData.length === 0) {
+        const recentRows = await recentResponse.json();
+        if (!Array.isArray(recentRows) || recentRows.length === 0) {
           console.log("No forecast data found in database.");
           return;
         }
 
-        const latestRunId = latestData[0].simulation_run_id;
+        const now = Date.now();
+        const hasImpacts = (row) =>
+          Array.isArray(row.impact_matrix) && row.impact_matrix.length > 0;
+        const isFresh = (row) => {
+          const t = row.created_at ? new Date(row.created_at).getTime() : NaN;
+          return !isNaN(t) && now - t <= FORECAST_FRESHNESS_MS;
+        };
+
+        // Rows are newest-first → the first fresh row with impacts identifies the
+        // most recent meaningful run.
+        const anchor = recentRows.find((r) => hasImpacts(r) && isFresh(r));
+        if (!anchor) {
+          // No recent run is forecasting any impact — that's a valid "all clear".
+          return;
+        }
+        const latestRunId = anchor.simulation_run_id;
 
         // If we've already processed this run, skip
         if (latestRunId === lastRunId) {
           return;
         }
 
-        // Fetch all forecast rows for this simulation_run_id
-        const forecastsResponse = await fetch(
-          `${AI2_SUPABASE_URL}/rest/v1/seabeacon_forecasts?select=*&simulation_run_id=eq.${latestRunId}`,
-          {
-            headers: {
-              apikey: AI2_SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${AI2_SUPABASE_ANON_KEY}`,
-            },
-          }
-        );
-
-        if (!forecastsResponse.ok) {
-          console.error("Failed to fetch forecasts:", forecastsResponse.status, forecastsResponse.statusText);
-          return;
-        }
-
-        const forecasts = await forecastsResponse.json();
-        if (!forecasts || forecasts.length === 0) {
-          console.log("No forecast rows found for the latest simulation run.");
+        // All rows for the chosen run are already in recentRows (a run is ~5 rows).
+        const forecasts = recentRows.filter((r) => r.simulation_run_id === latestRunId);
+        if (forecasts.length === 0) {
           return;
         }
 

@@ -57,13 +57,17 @@ def fetch_active_typhoon_data(live_mode=False):
                     return api_payload
             
             print("--> [Ingest] NASA EONET currently shows zero active storms with sufficient tracking data.")
-            print("--> [Ingest] Falling back to safe mode simulation...")
+            # THE FIX: Return None immediately to prevent injecting the safe mode payload
+            return None
 
         except Exception as e:
-            print(f"--> [Ingest] CRITICAL: NASA EONET connection failed ({e}). Falling back to safe mode.")
+            print(f"--> [Ingest] CRITICAL: NASA EONET connection failed ({e}).")
+            # THE FIX: Return None immediately. Do not fall back to fake data in production.
+            return None
 
     # ---------------------------------------------------------
     # FAILSAFE DEMO PAYLOAD (Simulating Super Typhoon Yagi 2024)
+    # This is now ONLY reached if live_mode=False (e.g., when testing predict.py directly)
     # ---------------------------------------------------------
     current_time = datetime.now(timezone.utc)
     return {

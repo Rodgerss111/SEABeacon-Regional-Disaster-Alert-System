@@ -2,6 +2,10 @@ import pandas as pd
 import requests
 import os
 import csv
+from dotenv import load_dotenv
+
+# Load secure environment variables
+load_dotenv()
 
 def run_historical_backtest(target_year):
     print("==================================================")
@@ -9,8 +13,12 @@ def run_historical_backtest(target_year):
     print("==================================================\n")
     
     print("--> 1. Connecting to NOAA IBTrACS Meteorological Archive...")
-    # The direct link to the Western North Pacific best-track dataset
-    url = "https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r00/access/csv/ibtracs.WP.list.v04r00.csv"
+    # The direct link to the Western North Pacific best-track dataset loaded securely
+    url = os.getenv("NOAA_DATA_URL")
+    
+    if not url:
+        print("❌ CRITICAL: NOAA_DATA_URL missing from environment variables.")
+        return
     
     # We must skip row 1, as NOAA uses it for unit descriptions which breaks Pandas
     df = pd.read_csv(url, skiprows=[1], low_memory=False)
@@ -33,7 +41,7 @@ def run_historical_backtest(target_year):
     
     print(f"--> 3. Initializing local fine-tuning report: {csv_path}\n")
     
-    API_URL = "http://127.0.0.1:8000/api/v1/spatial-conversion"
+    API_URL = os.getenv("SPATIAL_API_URL")
     
     # Open the CSV file and start the high-speed data stream
     with open(csv_path, mode='w', newline='') as file:

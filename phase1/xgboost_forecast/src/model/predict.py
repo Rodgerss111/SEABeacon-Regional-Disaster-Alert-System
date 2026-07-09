@@ -5,6 +5,11 @@ import joblib
 import numpy as np
 import datetime
 import json
+import os
+from dotenv import load_dotenv
+
+# Load secure environment variables
+load_dotenv()
 
 # Dynamically add the src directory to the python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -13,7 +18,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from src.data_pipeline.fetch_realtime import fetch_active_typhoon_data, vectorize_live_payload
 
 # Configuration
-API_URL = "http://localhost:8000/api/v1/spatial-conversion"
+API_URL = os.getenv("SPATIAL_API_URL")
 MODEL_PATH = os.path.join('models', 'seabeacon_xgb_v1.pkl')
 MEDIAN_ERROR_6H = 38.40  # Sourced directly from your recent training metrics
 

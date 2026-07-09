@@ -1,23 +1,19 @@
-import os
 import requests
 import json
+import os
+from dotenv import load_dotenv
 
-try:
-    from dotenv import load_dotenv
-    load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
-except ImportError:
-    pass
-
-# Supabase project ref comes from .env (falls back to the AI2 forecast project)
-PROJECT_REF = os.getenv("SUPABASE_PROJECT_REF", "axigjjehzqghflrvewaj")
+# Load secure environment variables
+load_dotenv()
 
 def get_latest_simulation_id(supabase_anon_key):
     """
     Automatically queries the Supabase database to find the 
     simulation_run_id of the most recently inserted forecast.
     """
+    SUPABASE_URL = os.getenv("SUPABASE_REST_URL")
     TABLE_NAME = "seabeacon_forecasts"
-    url = f"https://{PROJECT_REF}.supabase.co/rest/v1/{TABLE_NAME}"
+    url = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}"
     
     # We ask Supabase for just 1 row, sorted by the newest created_at time
     params = {
@@ -64,12 +60,16 @@ def fetch_xgboost_forecasts(simulation_run_id, supabase_anon_key):
     - Lead Time Hours       (NEW)
     """
     
+    PROJECT_REF = "axigjjehzqghflrvewaj"
     TABLE_NAME = "seabeacon_forecasts"
     
     # THE FIX: Added base_timestamp and lead_time_hours to the Supabase SQL query
     columns_needed = "forecast_target_time,predicted_lat,predicted_lon,predicted_wind_kph,storm_name,warning_scope_km,alert_status,impact_matrix,base_timestamp,lead_time_hours"
     
-    url = f"https://{PROJECT_REF}.supabase.co/rest/v1/{TABLE_NAME}"
+    SUPABASE_URL = os.getenv("SUPABASE_REST_URL")
+    TABLE_NAME = "seabeacon_forecasts"
+    url = f"{SUPABASE_URL}/rest/v1/{TABLE_NAME}"
+    
     params = {
         "select": columns_needed,
         "simulation_run_id": f"eq.{simulation_run_id}", 
@@ -96,9 +96,13 @@ def fetch_xgboost_forecasts(simulation_run_id, supabase_anon_key):
 
 if __name__ == "__main__":
     # --- INSTRUCTIONS FOR LSTM ENGINEER ---
-    # 1. The 'anon public' key is read from .env (SUPABASE_ANON_KEY). See .env.example.
-    YOUR_ANON_KEY = os.environ["SUPABASE_ANON_KEY"]
-
+    # 1. Provide the 'anon public' key securely from the environment
+    YOUR_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
+    
+    if not YOUR_ANON_KEY or not os.getenv("SUPABASE_REST_URL"):
+        print("❌ CRITICAL: Supabase credentials missing from .env file.")
+        exit(1)
+        
     # 2. AUTO-FETCH THE LATEST RUN (No manual ID required!)
     TARGET_RUN_ID = get_latest_simulation_id(YOUR_ANON_KEY) 
     

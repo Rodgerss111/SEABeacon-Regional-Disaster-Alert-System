@@ -195,15 +195,15 @@ This enables disaster information to cross national borders as quickly as the st
 ---
 
 > **Forecast Visualization**
-![Forecast visualization 4](docs/images/forecast-4.png)
+![Forecast visualization 7](docs/images/forecast-7.png)
 ![Forecast visualization 5](docs/images/forecast-5.png)
 ![Forecast visualization 6](docs/images/forecast-6.png)
 ---
 
 > **Alert Interface**
 
-![Alert interface preview](docs/images/alert-interface.png)
-
+![Alert interface preview 2](docs/images/alert-interface-2.png)
+![Alert interface preview 3](docs/images/alert-interface-3.png)
 ---
 
 > **System Architecture**

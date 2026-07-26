@@ -195,9 +195,9 @@ This enables disaster information to cross national borders as quickly as the st
 ---
 
 > **Forecast Visualization**
-![Forecast visualization 1](docs/images/forecast-3.png)
-![Forecast visualization 2](docs/images/forecast-1.png)
-![Forecast visualization 3](docs/images/forecast-2.png)
+![Forecast visualization 4](docs/images/forecast-4.png)
+![Forecast visualization 5](docs/images/forecast-5.png)
+![Forecast visualization 6](docs/images/forecast-6.png)
 ---
 
 > **Alert Interface**

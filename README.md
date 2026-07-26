@@ -190,25 +190,25 @@ This enables disaster information to cross national borders as quickly as the st
 
 > **Dashboard**
 
-*(Insert dashboard screenshot here.)*
+![SEABeacon dashboard preview](docs/images/dashboard.png)
 
 ---
 
 > **Forecast Visualization**
-
-*(Insert typhoon prediction visualization here.)*
-
+![Forecast visualization 1](docs/images/forecast-3.png)
+![Forecast visualization 2](docs/images/forecast-1.png)
+![Forecast visualization 3](docs/images/forecast-2.png)
 ---
 
 > **Alert Interface**
 
-*(Insert multilingual alert generation screenshots here.)*
+![Alert interface preview](docs/images/alert-interface.png)
 
 ---
 
 > **System Architecture**
 
-*(Insert complete architecture diagram here.)*
+![System architecture diagram](docs/images/system-architecture.png)
 
 ---
 
